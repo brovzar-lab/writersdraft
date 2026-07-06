@@ -17,6 +17,18 @@ Don't render the text as JSX children. Sync `div.textContent` in an effect only 
 ## Industry layout constants (Courier 12pt, US Letter)
 10 chars/inch, 6 lines/inch, 55 body lines/page. Margins 1.5" left, 1" right/top/bottom. Indents in chars from left margin: action 0/60 wide, dialogue 10/35, parenthetical 16/25, character 22, transition right-aligned. Scene headings get 2 blank lines before, most other blocks 1, dialogue group 0.
 
+## Emulators break networkidle waits
+Once the Firebase emulators are up, the app holds a live Firestore stream, so Playwright `waitUntil: 'networkidle'` never resolves. Always use `waitUntil: 'load'` + `waitForSelector('[data-element-type]')` in smokes.
+
+## sanitizeElement is a whitelist — new ScriptElement fields need explicit passes
+Any field added to ScriptElement (e.g. `dual`) is silently stripped on every IndexedDB/Firestore round trip until `sanitizeElement` in scriptStore.ts learns it. Add a migrate regression test with each new field.
+
+## FDX facts that matter
+Paragraph `Type` attr maps 1:1 to our element types; scene numbers are `Number` attrs; dual dialogue is a `<DualDialogue>` wrapper (2nd Character cue starts the right column); notes are `<ScriptNote><Paragraph>…` inside the owning paragraph; FDX paragraphs cannot hard-break (flatten \n → space). Never emit SmartType/ElementSettings on export — FD regenerates them. rules-unit-testing v4 pairs with firebase 11 (v5 needs 12).
+
+## Rules-enforced client discipline
+firestore.rules makes ownerId immutable and requires creates to batch a userMeta lastCreateAt=request.time bump (getAfter). sync.ts must therefore (a) track real owners from loads and never stamp the current uid over them, (b) writeBatch creates with the limiter bump. Presence writes are denied until the parent script doc exists (best-effort catch handles it).
+
 ## Playwright smoke test is the real editor gate
 Unit tests can't catch contentEditable focus/caret wiring; drive the dev server with playwright-core (`executablePath: '/opt/pw-browsers/chromium'`, `--no-sandbox`) and assert `document.activeElement`'s `data-element-type` after each Enter/Tab. Chrome's automatic /favicon.ico request 404s against Vite — use a data-URI favicon to keep the console clean. Script lives at scratchpad/smoke.mjs.
 

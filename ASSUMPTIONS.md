@@ -1,7 +1,63 @@
 # ASSUMPTIONS
 
-Decisions made during the trust-cluster work where the audit report left the
-choice open. Each picked the safer option for the writer's draft.
+Decisions made where the audit report left the choice open. Each picked the
+safer option for the writer's draft.
+
+## Workstream D — FDX interop
+
+- **Dual dialogue is data, not layout, in this run**: `<DualDialogue>`
+  imports to `dual:'left'|'right'` marks that round-trip through storage and
+  FDX export; the editor and print render the two columns sequentially.
+  Side-by-side rendering is deferred (layout feature, no data loss).
+- **FDX export omits FD-regenerated sections** (SmartType, ElementSettings,
+  SceneProperties, HeaderAndFooter, Revisions) — emitting stale copies is how
+  exporters corrupt FD documents; Final Draft rebuilds them on open.
+- **Intra-element newlines flatten to spaces on FDX export** — FDX paragraphs
+  cannot carry hard line breaks; this is the only lossy step and the editor
+  almost never produces such newlines.
+- **Title-page mapping is heuristic**: exported as centered title / "written
+  by" / author / draft date + left-aligned contact lines; import inverts that
+  exactly and degrades to title-only for foreign layouts.
+- **Notes map to `<ScriptNote>` inside the owning paragraph**; note author
+  and timestamps don't exist in FDX and are reset on import ('Final Draft').
+  Tags have no standard FDX home and intentionally do not export.
+
+## Workstream E — Input fidelity
+
+- **Single-line pastes insert literally** (no type auto-detection) — matching
+  FD; only multi-line pastes run the parser. Predictability over cleverness.
+- **Enter over a cross-block selection deletes it only**; the caret lands at
+  the join and the next Enter splits via the state machine. (Real editors do
+  both in one keystroke; the two-step keeps range ops atomic in history.)
+- **Cross-block paste-over-selection is two history entries** (delete, then
+  insert); in-block paste-over-selection is one. Accepted trade for reusing
+  the two atomic primitives.
+- **deleteRange survivor type**: when the selection starts at offset 0 the
+  start element is consumed whole, so the survivor keeps the END element's
+  type/identity (cutting a cue must not leave a character-typed shell).
+
+## Workstream F — Firestore rules
+
+- **Rate limit = 1 script create per 5s per account**, enforced purely in
+  rules via a batched `userMeta` bump + `getAfter`. A second import within
+  5s gets its cloud copy on the next autosave retry; local saves never wait.
+- **Updates are not rate-limited** (autosave is 800ms-debounced and
+  Firestore's 1 write/sec/doc guidance is the practical ceiling); the 1 MiB
+  document cap is the byte backstop, rules bound the shape (field allowlist,
+  elements ≤ 20000, collaborators ≤ 25).
+- **Presence requires the parent script to exist** (participant check reads
+  it), so the first heartbeat of a brand-new never-saved script is denied
+  and swallowed by the best-effort catch; presence starts after first save.
+- **savedAt/collaborators are allowed fields but the app doesn't yet set
+  collaborators** — the rules are written for the sharing feature to land.
+
+## Workstream G — Durability
+
+- **persist() is requested once, on first successful save** (not on load) —
+  the prompt-free browsers decide on engagement heuristics; asking at first
+  real write is the honest moment. The answer is displayed, never assumed.
+- **Guest banner dismissal is session-scoped** (returns next visit) — being
+  forgettable would defeat its purpose; being permanent would nag.
 
 ## Workstream A — Data integrity
 

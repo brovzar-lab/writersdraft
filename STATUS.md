@@ -1,133 +1,134 @@
-# STATUS — Trust Cluster (audit items 1–6 + 9)
+# STATUS — Ten-Minute Pro Test (audit items 7, 8, 10 + durability)
 
-Three workstreams, one commit each, in order. Roll back to any commit and the
-app is green at that point.
+Follows the trust cluster (items 1–6, 9; commits `b32bfd0`…`3eb927b`).
+Four workstreams, one commit each — roll back to any commit and the app is
+green at that point.
 
 | Commit | Workstream |
 | --- | --- |
-| `b32bfd0` | A — Data integrity |
-| `768e5fc` | B — Feature-length performance |
-| `3eb927b` | C — Paginator-truth rendering, print, orphaned cue |
+| `git log --grep "Workstream D"` | D — Final Draft (.fdx) interop |
+| `git log --grep "Workstream E"` | E — Paste pipeline + cross-block selection |
+| `git log --grep "Workstream F"` | F — Firestore rules hardening + rules tests |
+| `git log --grep "Workstream G"` | G — Storage persistence + honest account state |
 
 ## How to run
 
 ```bash
 npm install
 npm run dev          # app on http://localhost:5173
-npm test             # 126 tests (engine, stores, codec, equivalence)
+npm test             # 158 unit tests (engine, stores, codecs, clipboard)
+npm run test:rules   # 20 Firestore security-rules tests (spawns the emulator)
 npm run build        # typecheck + production build
-npm run emulators    # Firebase emulator suite (needed for cloud features in dev)
+npm run emulators    # Firebase emulator suite (cloud features in dev)
 ```
 
-One command builds and runs; without `VITE_FIREBASE_*` env vars the app
-targets the local emulators and works fully offline either way.
+## The ten-minute test, verified end to end
 
-## Workstream A — Data integrity (items 1, 2, 6)
+- **Import a .fdx** → renders correctly on screen (types, scene numbers,
+  dual-dialogue marks, notes in the notes panel, navigator) and in print
+  (title page + 55-line body pages; a real PDF was emitted and checked).
+- **Paste a raw script** → splits into correctly typed elements (scene
+  heading / action / cue / parenthetical / dialogue / transition / shot),
+  one undo step.
+- **Export a .fdx** → minimal, well-formed XML (XMLValidator-clean); FD's
+  self-regenerated sections deliberately omitted.
+- **Print** → re-verified post-changes (imported-FDX → PDF, page count and
+  content checked).
+- **Rules emulator tests** → 20/20 pass.
 
-**Changed**
-- **IndexedDB is the durable local store** (`src/storage/local.ts`): scripts,
-  delta-encoded timelines, and meta in DB `writersdraft`, with a localStorage
-  fallback when IndexedDB is unavailable. The legacy localStorage save is
-  migrated once and deliberately left in place; a script-only localStorage
-  mirror is still written per save as belt-and-braces.
-- **Remote saves can no longer destroy local work** (`receiveRemote` in
-  `scriptStore.ts`): a remote snapshot applies only when the local store is
-  clean, and applying pushes the pre-remote state onto the undo stack. A
-  remote over unsaved work parks in a conflict banner (Keep mine / Load
-  theirs; "theirs" keeps yours one Undo away). Remotes are judged against
-  `lastSyncedAt`, not the local typing timestamp — the e2e test proved that
-  during concurrent typing the old comparison silently discarded the
-  collaborator's version.
-- **Version timeline** (`src/engine/timelineCodec.ts`): prefix/suffix deltas
-  with keyframes every 10 entries at rest, pruned oldest-first to an 8MB byte
-  budget; automatic snapshots at most every 5 minutes (manual, sprint and
-  lock snapshots always record). Timeline persistence is a separate write in
-  a separate failure domain — it can no longer take the script save down
-  with it.
-- **Cloud recovery**: script id lives in the URL (`#/s/<id>`); unknown ids
-  are fetched from Firestore after sign-in (retried when auth changes);
-  anonymous sessions can link an email/password account (same uid, so cloud
-  docs survive cleared site data); a Library view lists local + cloud-only
-  scripts with open/create/delete.
-- `saveScript` no longer uses `merge:true` (sceneMeta resurrection bug dead).
-- One **ErrorBoundary** persists the draft on crash and offers a JSON
-  download; `migrateScript` validates and repairs every shape (garbage,
-  wrong types, foreign fields) before anything reaches the store.
-- Found en route: Ctrl+Z no longer hijacks native undo in textareas/inputs;
-  Fountain imports persist before the first edit; Firestore listeners handle
-  stream errors.
+## Workstream D — FDX interop (item 7)
 
-**Verified**: 24 store/codec unit tests incl. five remote-conflict
-regressions; Playwright smoke (IndexedDB persistence, survives
-`localStorage.clear()`, library, deep links, legacy migration); emulator e2e
-(account linking, new-device recovery via URL + sign-in, live sync with undo
-preserved, conflict banner during concurrent typing, keep-mine convergence).
+- `src/engine/fdx.ts`: import maps FDX typed paragraphs 1:1 onto the
+  element model; preserves what Fountain drops — scene numbers (incl.
+  `2A`), dual dialogue (`<DualDialogue>` → `dual:'left'|'right'` marks on
+  elements), script notes (`<ScriptNote>` → notes attached to their
+  element), title page (title / by-line / draft date / contact heuristic).
+- Export emits clean, minimal, hand-built XML. FD-regenerated sections
+  (SmartType, ElementSettings, SceneProperties, HeaderAndFooter) are
+  ignored on import and omitted on export. Internal newlines flatten to
+  spaces — the one lossy step (FDX paragraphs cannot hard-break).
+- Two real fixtures (`src/engine/__fixtures__/`): short.fdx (entities,
+  ignored sections, full title page) and dual.fdx (dual dialogue, scene
+  numbers, a ScriptNote). Round-trip tests assert import → export →
+  re-import structural equivalence on both.
+- `sanitizeElement` preserves `dual` (found en route: every storage round
+  trip silently stripped it before).
+- Toolbar: Export dropdown (.fdx / .fountain), Import accepts .fdx.
+- **Your final proof**: export from the app and open in real Final Draft —
+  the XML is standards-shaped, but FD itself is the only true oracle.
 
-## Workstream B — Performance at feature length (item 3)
+## Workstream E — Input fidelity (item 8)
 
-**Changed**
-- `ElementBlock` uses narrow selectors + `memo`: a keystroke re-renders one
-  block, not 2,870. App/Toolbar/StatusBar/SceneNavigator narrowed the same
-  way; App itself no longer re-renders while typing (autosave debounce moved
-  to a store subscription).
-- One pagination per keystroke via `PaginationProvider`, using
-  `paginateIncremental` (`src/engine/pagination.ts`): pages before the edit
-  point are reused by object identity; falls back to the pure `paginate()`
-  whenever unsure. Equivalence with the full paginator is property-tested
-  across 300 chained random edits. `elementLines` memoized by element
-  identity (WeakMap; elements are immutable so the cache is exact).
-- Pages virtualized: only pages near the viewport (or holding the
-  active/caret-target element) mount their contentEditables.
+- **Paste**: all pastes are plain-text-forced; multi-line text runs
+  through `parseFountainBody` (extracted from the Fountain importer, plus
+  shot detection) and splits into typed elements. Single-line pastes
+  insert literally. One history entry either way.
+- **Cross-block selection**: capture-phase handlers on the editor
+  container intercept only selections that span blocks, and re-express the
+  edit as store ops — `deleteRange` (direction-normalising; when the range
+  starts at offset 0 the survivor takes the END element's type, so cutting
+  a cue never leaves a character-typed shell), `pasteElements`
+  (split-at-caret insert with optional replace span), `extractRange`
+  (pure). Copy/cut serialize the range as Fountain so element types
+  survive the clipboard; typing over a spanning selection replaces it.
+- Proven in a real browser: selection spanning scene heading → action →
+  cue → parenthetical → dialogue; Backspace, cut, copy, paste-back, and
+  type-over all behave; range ops are single undo steps.
 
-**Measured** (117-page / 2,870-element script, headless Chromium, dev build):
-mounted blocks 2,870 → **24**; per-keystroke JS avg 4.1ms → **1.2ms**, max
-16.6ms → 4.4ms. Navigator jumps and Enter-at-page-boundary work under
-virtualization.
+## Workstream F — Firestore rules (item 10)
 
-## Workstream C — What you see is what prints (items 4, 5, 9)
+- Reads scoped to participants (owner/collaborators) everywhere including
+  presence; the dead-but-open `/history` rules are **removed**.
+- `ownerId` immutable on update; only the owner edits `collaborators` or
+  deletes; presence docs are shape-validated and writable only as
+  yourself, only by participants.
+- Schema/size validation (field allowlist, embedded id must match doc id,
+  elements ≤ 20000, bounded titles/tags/notes/docs, collaborators ≤ 25).
+- Create rate limiting: a create must batch a `userMeta/{uid}.lastCreateAt
+  = request.time` bump (verified via `getAfter`) with the previous bump
+  ≥ 5s old — one create per 5s per account, enforced by rules alone.
+- Client cooperation (`sync.ts`): saves never stamp the current uid over
+  an existing owner (a collaborator's save now survives); genuine creates
+  batch the limiter bump.
+- 20 rules tests (`npm run test:rules`): outsider denial, hijack attempts,
+  collaborator limits, shape rejection, spam-create rejection, presence
+  scoping, history removal. Live smoke: the real app creates/updates/
+  presence-beats under the hardened rules with zero denials.
 
-**Changed**
-- The editor page renders **from the paginator's PageLine output**: cue hugs
-  dialogue (0px gap — verified by bounding-box in the smoke), scene headings
-  get their two clear lines, and (MORE)/CHARACTER (CONT'D) draw at page
-  breaks on screen.
-- **Real print path** (`src/components/PrintView.tsx`): title page plus
-  fixed 55-line US Letter pages from the same `paginate()` output — page
-  numbers from page 2, scene numbers on locked headings (both margins),
-  right-aligned transitions, forced black-on-white (dark-mode print fixed).
-  Print button, Ctrl+P and browser-menu print all route through it;
-  Save-as-PDF emits a submittable screenplay (PDF page count verified
-  against the paginator).
-- **Orphaned-cue bug fixed** in the paginator: a flushing dialogue/
-  parenthetical carries its trailing cue (and parentheticals) to the next
-  page. Three regression tests (short dialogue, cue+parenthetical, long
-  dialogue). The incremental paginator's reuse rule was tightened to match
-  (decision-horizon check) — caught by the equivalence property test.
+## Workstream G — Durability holes
 
-## Deferred / known limitations (by design of this run)
+- `navigator.storage.persist()` requested on the first successful save;
+  the **browser's answer is surfaced** in the status bar (🛡 protected /
+  ⚠ evictable with an explanatory tooltip) instead of assumed.
+- Guest banner: while anonymous (or fully offline) a dismissible banner
+  says plainly that the draft lives only in this browser and its "Create
+  account" button opens the existing linking form. Recovery no longer
+  depends on a step the user never knew to take.
 
-- **Concurrent edits still resolve whole-document** after the banner (the
-  losing side is one Undo away, never silently gone). True merge/CRDT is the
-  Phase 4 collaboration feature.
-- **An element that spans a page break renders whole on its start page** in
-  the editor (a contentEditable can't split across pages); the break markers
-  show the paginator's split and print is exact.
-- **Account linking is email/password only**; Google/OAuth needs provider
-  config in the Firebase project.
-- **`firestore.rules` hardening (audit item 10) was not in scope** and
-  remains as audited — do this before any public deploy.
-- A known firebase-js-sdk internal assertion can log once to the console
-  when auth changes under an active denied listener; streams re-establish,
-  state is unaffected.
-- Two tabs of the same browser still race (audit finding outside items 1–6/9);
-  the conflict banner now catches the cloud echo of that race, but a
-  BroadcastChannel tab-lock is the real fix.
+## Deferred / known limitations
 
-## Needs your attention
+- **Revision marks** (change asterisks per revision color) and **full
+  production locking semantics** (locked page numbering, A-pages) remain
+  future work; scene numbering + revision-color cycling exist.
+- **Real concurrent merge** (CRDT/OT) — conflicts still resolve
+  whole-document behind the conflict banner, losing side one Undo away.
+- **Dual dialogue renders sequentially** in the editor and print (marks
+  are preserved and round-trip through FDX; side-by-side layout is a
+  rendering feature, not a data feature, and can come later).
+- FDX export flattens intra-element newlines to spaces.
+- FDX title-page import is heuristic (title / "written by" / date /
+  left-aligned contact); foreign layouts degrade gracefully to title-only.
+- Create rate-limit (1 per 5s) can delay the cloud copy of a
+  second-import-within-5s until the next autosave retry; local saves are
+  unaffected.
+- Two tabs of the same browser still race (BroadcastChannel tab-lock is
+  the real fix; the conflict banner catches the cloud echo).
 
-1. **Set real `VITE_FIREBASE_*` env vars** (and deploy `firestore.rules`) to
-   turn on production cloud sync; until then cloud features run against the
-   emulator and the app is otherwise local-first.
-2. Decide whether "Keep mine / Load theirs" wording matches your voice —
-   it's the one user-facing surface added by the conflict guard.
-3. ASSUMPTIONS.md logs every open decision I closed; skim it once.
+## Needs your hands
+
+1. **Open an exported .fdx in actual Final Draft** — the round trip and
+   XML validation are machine-proven; FD acceptance is the final oracle.
+2. **Deploy `firestore.rules`** (now hardened) with real `VITE_FIREBASE_*`
+   env vars when you take cloud sync to production.
+3. The guest banner + storage-evictable wording is user-facing copy —
+   check it matches your voice.
