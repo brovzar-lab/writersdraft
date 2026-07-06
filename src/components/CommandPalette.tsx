@@ -70,12 +70,32 @@ export function CommandPalette({ onPrint }: { onPrint: () => void }) {
       });
     }
     for (const v of VIEW_LABELS) {
-      out.push({ id: `view-${v.id}`, label: v.label, hint: "view", run: () => ui.setView(v.id) });
+      out.push({
+        id: `view-${v.id}`,
+        label: v.label,
+        hint: "view",
+        run: () => ui.setView(v.id),
+      });
     }
     out.push(
-      { id: "cmd-dark", label: "Toggle dark mode", hint: "command", run: () => ui.toggleDarkMode() },
-      { id: "cmd-focus", label: "Focus mode", hint: "command", run: () => ui.toggleFocusMode() },
-      { id: "cmd-print", label: "Print / Save as PDF", hint: "command", run: onPrint },
+      {
+        id: "cmd-dark",
+        label: "Toggle dark mode",
+        hint: "command",
+        run: () => ui.toggleDarkMode(),
+      },
+      {
+        id: "cmd-focus",
+        label: "Focus mode",
+        hint: "command",
+        run: () => ui.toggleFocusMode(),
+      },
+      {
+        id: "cmd-print",
+        label: "Print / Save as PDF",
+        hint: "command",
+        run: onPrint,
+      },
       {
         id: "cmd-fdx",
         label: "Export Final Draft (.fdx)",
@@ -91,14 +111,18 @@ export function CommandPalette({ onPrint }: { onPrint: () => void }) {
         hint: "command",
         run: () => {
           const s = useScriptStore.getState().script;
-          download(`${s.titlePage.title || "script"}.fountain`, exportFountain(s));
+          download(
+            `${s.titlePage.title || "script"}.fountain`,
+            exportFountain(s),
+          );
         },
       },
       {
         id: "cmd-snapshot",
         label: "Snapshot this version",
         hint: "command",
-        run: () => void useScriptStore.getState().recordSnapshot("Manual snapshot"),
+        run: () =>
+          void useScriptStore.getState().recordSnapshot("Manual snapshot"),
       },
       {
         id: "cmd-sprint",
@@ -108,7 +132,8 @@ export function CommandPalette({ onPrint }: { onPrint: () => void }) {
           const words = useScriptStore
             .getState()
             .script.elements.reduce(
-              (a, el) => a + (el.text.trim() ? el.text.trim().split(/\s+/).length : 0),
+              (a, el) =>
+                a + (el.text.trim() ? el.text.trim().split(/\s+/).length : 0),
               0,
             );
           ui.startSprint(15, 300, words);
@@ -123,7 +148,9 @@ export function CommandPalette({ onPrint }: { onPrint: () => void }) {
     if (!q) return commands.slice(0, 12);
     const starts = commands.filter((c) => c.label.toLowerCase().startsWith(q));
     const contains = commands.filter(
-      (c) => !c.label.toLowerCase().startsWith(q) && c.label.toLowerCase().includes(q),
+      (c) =>
+        !c.label.toLowerCase().startsWith(q) &&
+        c.label.toLowerCase().includes(q),
     );
     return [...starts, ...contains].slice(0, 12);
   }, [commands, query]);
@@ -147,10 +174,10 @@ export function CommandPalette({ onPrint }: { onPrint: () => void }) {
     >
       <div
         data-testid="command-palette"
-        className="w-[34rem] max-w-[90vw] overflow-hidden rounded-xl border border-line bg-desk-raised shadow-2xl"
+        className="w-[34rem] max-w-[90vw] overflow-hidden rounded-xl border border-line bg-surface shadow-2xl"
       >
         <div className="flex items-center gap-2 border-b border-line px-3">
-          <IconFilm size={14} className="shrink-0 text-brass" />
+          <IconFilm size={14} className="shrink-0 text-accent" />
           <input
             ref={inputRef}
             autoFocus
@@ -175,14 +202,18 @@ export function CommandPalette({ onPrint }: { onPrint: () => void }) {
               }
             }}
             placeholder="Jump to a scene, switch view, run a command…"
-            className="w-full bg-transparent py-2.5 text-sm text-ink outline-none placeholder:text-ink-faint"
+            className="w-full bg-transparent py-2.5 text-sm text-ink outline-none placeholder:text-ink-3"
             aria-label="Search commands"
           />
-          <kbd className="rounded border border-line px-1 text-[10px] text-ink-faint">esc</kbd>
+          <kbd className="rounded border border-line px-1 text-[10px] text-ink-3">
+            esc
+          </kbd>
         </div>
         <ul role="listbox" className="max-h-80 overflow-y-auto py-1">
           {filtered.length === 0 && (
-            <li className="px-3 py-4 text-center text-xs text-ink-faint">No matches.</li>
+            <li className="px-3 py-4 text-center text-xs text-ink-3">
+              No matches.
+            </li>
           )}
           {filtered.map((c, i) => (
             <li key={c.id}>
@@ -195,13 +226,17 @@ export function CommandPalette({ onPrint }: { onPrint: () => void }) {
                   run(c);
                 }}
                 className={`flex w-full items-center justify-between px-3 py-1.5 text-left text-xs ${
-                  i === index ? "bg-brass-soft text-ink" : "text-ink-soft"
+                  i === index ? "bg-accent-soft text-ink" : "text-ink-2"
                 }`}
               >
-                <span className={c.hint === "scene" ? "font-screenplay uppercase" : ""}>
+                <span
+                  className={
+                    c.hint === "scene" ? "font-screenplay uppercase" : ""
+                  }
+                >
                   {c.label}
                 </span>
-                <span className="text-[10px] text-ink-faint">{c.hint}</span>
+                <span className="text-[10px] text-ink-3">{c.hint}</span>
               </button>
             </li>
           ))}

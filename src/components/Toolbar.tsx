@@ -84,7 +84,7 @@ export function Toolbar({
   );
 
   return (
-    <header className="no-print flex items-center gap-2 border-b border-line bg-desk-raised px-3 py-1.5 font-ui text-sm text-ink">
+    <header className="no-print flex items-center gap-2 border-b border-line bg-surface px-3 py-1.5 font-ui text-sm text-ink">
       {view === "editor" && (
         <Button
           iconOnly
@@ -96,15 +96,15 @@ export function Toolbar({
         </Button>
       )}
       <span className="mr-1 hidden items-center gap-1.5 select-none sm:flex">
-        <IconFilm size={16} className="text-brass" />
-        <span className="text-[13px] font-semibold tracking-tight">
-          Writers<span className="text-brass">Draft</span>
+        <IconFilm size={16} className="text-ink-2" />
+        <span className="text-[13px] font-semibold tracking-tight text-ink">
+          WritersDraft
         </span>
       </span>
 
       <nav
         aria-label="Views"
-        className="flex max-w-[42vw] overflow-x-auto rounded-lg bg-desk-sunken p-0.5 md:max-w-none"
+        className="flex max-w-[42vw] overflow-x-auto rounded-lg bg-sunken p-0.5 md:max-w-none"
       >
         {VIEWS.map((v) => (
           <button
@@ -113,8 +113,8 @@ export function Toolbar({
             aria-current={view === v.id ? "page" : undefined}
             className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors ${
               view === v.id
-                ? "bg-desk-raised text-ink shadow-sm"
-                : "text-ink-faint hover:text-ink"
+                ? "bg-surface text-ink shadow-sm"
+                : "text-ink-3 hover:text-ink"
             }`}
           >
             {v.label}
@@ -124,7 +124,7 @@ export function Toolbar({
 
       {view === "editor" && (
         <select
-          className="hidden rounded-md border border-line bg-transparent px-1.5 py-1 text-xs text-ink-soft hover:border-line-strong sm:block"
+          className="hidden rounded-md border border-line bg-transparent px-1.5 py-1 text-xs text-ink-2 hover:border-line sm:block"
           value={activeType ?? "action"}
           aria-label="Element type"
           onChange={(e) => {
@@ -158,12 +158,14 @@ export function Toolbar({
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">
-        <span className="hidden px-1 text-[11px] text-ink-faint sm:inline">{syncState}</span>
+        <span className="hidden px-1 text-[11px] text-ink-3 sm:inline">
+          {syncState}
+        </span>
 
         {locked ? (
           <>
             <span
-              className="rounded-md border border-line px-1.5 py-1 text-[11px] capitalize text-ink-soft"
+              className="rounded-md border border-line px-1.5 py-1 text-[11px] capitalize text-ink-2"
               title="Current revision color"
             >
               {revisionColor} rev.
@@ -223,7 +225,7 @@ export function Toolbar({
         </Menu>
 
         <label
-          className="tip hidden cursor-pointer select-none items-center gap-1.5 rounded-md border border-line px-2 py-1 text-xs font-medium text-ink-soft transition-colors hover:border-line-strong hover:bg-desk-sunken/60 hover:text-ink md:inline-flex"
+          className="tip hidden cursor-pointer select-none items-center gap-1.5 rounded-md border border-line px-2 py-1 text-xs font-medium text-ink-2 transition-colors hover:border-line hover:bg-sunken/60 hover:text-ink md:inline-flex"
           data-tip="Import a .fdx or .fountain file"
         >
           <IconUpload /> Import
@@ -323,7 +325,7 @@ function SprintButton() {
         startSprint(15, 300, words);
       }}
     >
-      <IconZap className="text-brass" /> Sprint
+      <IconZap className="text-ink-2" /> Sprint
     </Button>
   );
 }

@@ -27,7 +27,7 @@ export function StatusBar() {
   const active = elements.find((e) => e.id === activeElementId);
 
   return (
-    <footer className="no-print flex items-center gap-4 border-t border-line bg-desk-raised px-3 py-1 font-ui text-[11px] text-ink-faint">
+    <footer className="no-print flex items-center gap-4 border-t border-line bg-surface px-3 py-1 font-ui text-[11px] text-ink-3">
       <span data-testid="page-indicator">
         {activePage != null
           ? `page ${activePage} of ${pages}`
@@ -39,23 +39,24 @@ export function StatusBar() {
       </span>
       <SprintStatus words={words} />
       {active && (
-        <span className="ml-auto text-ink-faint">
-          <b className="font-medium text-ink-soft">
+        <span className="ml-auto text-ink-3">
+          <b className="font-medium text-ink-2">
             {ELEMENT_LABELS[active.type]}
           </b>
           <span className="mx-1.5 opacity-60">·</span>
-          Enter <span className="text-brass">→</span>{" "}
+          Enter <span className="text-ink-3">→</span>{" "}
           {ELEMENT_LABELS[NEXT_ON_ENTER[active.type]]}
           <span className="mx-1.5 opacity-60">·</span>
-          Tab <span className="text-brass">→</span>{" "}
+          Tab <span className="text-ink-3">→</span>{" "}
           {ELEMENT_LABELS[NEXT_ON_TAB[active.type]]}
         </span>
       )}
       <span className={active ? "" : "ml-auto"}>
         {dirty ? (
-          <span className="text-warn">● unsaved</span>
+          // Semantic color never as small text — soft-pair on-* (flips per theme).
+          <span className="text-on-warning">● unsaved</span>
         ) : (
-          <span>✓ saved</span>
+          <span className="text-ink-3">✓ saved</span>
         )}
       </span>
       <StorageIndicator />
@@ -76,9 +77,9 @@ function StorageIndicator() {
       <span
         data-testid="storage-indicator"
         title="The browser granted persistent storage — your local drafts won't be evicted under disk pressure."
-        className="flex items-center gap-1 text-ok"
+        className="flex items-center gap-1 text-on-success"
       >
-        <IconShield size={12} /> storage protected
+        <IconShield size={12} className="text-success" /> storage protected
       </span>
     );
   }
@@ -86,9 +87,9 @@ function StorageIndicator() {
     <span
       data-testid="storage-indicator"
       title="The browser declined persistent storage: under disk pressure it may evict this site's data. Adding an account (cloud copy) protects your work."
-      className="flex items-center gap-1 text-warn"
+      className="flex items-center gap-1 text-on-warning"
     >
-      <IconAlert size={12} /> storage evictable
+      <IconAlert size={12} className="text-warning" /> storage evictable
     </span>
   );
 }
@@ -113,7 +114,7 @@ function SprintStatus({ words }: { words: number }) {
 
   return (
     <span
-      className={`flex items-center gap-2 ${done ? "text-ok" : "text-brass"}`}
+      className={`flex items-center gap-2 ${done ? "text-success" : "text-ink-2"}`}
     >
       <IconZap size={12} />
       {done ? "Sprint done!" : `${mm}:${String(ss).padStart(2, "0")}`} ·{" "}

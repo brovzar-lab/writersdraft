@@ -1,18 +1,26 @@
 /** Live collaboration state: connected peers and their active elements. */
-import { create } from 'zustand'
-import type { PresenceInfo } from '../firebase/sync'
+import { create } from "zustand";
+import type { PresenceInfo } from "../firebase/sync";
 
-export const PEER_COLORS = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899']
+/* Collaborator cursor colors from the data set (cool, no amber/warm). */
+export const PEER_COLORS = [
+  "#2b54f0",
+  "#6e4bf0",
+  "#119c8b",
+  "#ff6b5c",
+  "#5e80ff",
+  "#2fc9b0",
+];
 
 export interface CollabState {
   /** This user's presence identity. */
-  selfId: string | null
-  selfColor: string
-  peers: PresenceInfo[]
-  setSelf: (id: string) => void
-  setPeers: (peers: PresenceInfo[]) => void
+  selfId: string | null;
+  selfColor: string;
+  peers: PresenceInfo[];
+  setSelf: (id: string) => void;
+  setPeers: (peers: PresenceInfo[]) => void;
   /** Peers (excluding self) currently on a given element. */
-  peersOn: (elementId: string) => PresenceInfo[]
+  peersOn: (elementId: string) => PresenceInfo[];
 }
 
 export const useCollabStore = create<CollabState>((set, get) => ({
@@ -22,5 +30,7 @@ export const useCollabStore = create<CollabState>((set, get) => ({
   setSelf: (selfId) => set({ selfId }),
   setPeers: (peers) => set({ peers }),
   peersOn: (elementId) =>
-    get().peers.filter((p) => p.elementId === elementId && p.userId !== get().selfId),
-}))
+    get().peers.filter(
+      (p) => p.elementId === elementId && p.userId !== get().selfId,
+    ),
+}));

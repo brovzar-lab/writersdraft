@@ -1,75 +1,83 @@
 /** UI chrome state: panels, focus mode, active view, active element. */
-import { create } from 'zustand'
+import { create } from "zustand";
 
 export type AppView =
-  | 'editor'
-  | 'beatboard'
-  | 'analytics'
-  | 'titlepage'
-  | 'bible'
-  | 'history'
-  | 'library'
+  | "editor"
+  | "beatboard"
+  | "analytics"
+  | "titlepage"
+  | "bible"
+  | "history"
+  | "library";
 
 /** An active writing sprint (distraction-buster with a word goal). */
 export interface Sprint {
-  endsAt: number
-  startWords: number
-  targetWords: number
+  endsAt: number;
+  startWords: number;
+  targetWords: number;
 }
 
 export interface UiState {
-  view: AppView
-  sidebarOpen: boolean
-  notesOpen: boolean
+  view: AppView;
+  sidebarOpen: boolean;
+  notesOpen: boolean;
   /** Distraction-free mode: hides all chrome, only the page remains. */
-  focusMode: boolean
-  darkMode: boolean
-  activeElementId: string | null
+  focusMode: boolean;
+  darkMode: boolean;
+  activeElementId: string | null;
   /** Caret position to restore when programmatically moving focus.
    *  `center` scrolls the target block to mid-viewport (navigator jumps). */
-  pendingCaret: { elementId: string; offset: number; center?: boolean } | null
-  tagFilter: string | null
-  sprint: Sprint | null
+  pendingCaret: { elementId: string; offset: number; center?: boolean } | null;
+  tagFilter: string | null;
+  sprint: Sprint | null;
   /**
    * Whether the browser granted persistent storage (navigator.storage
    * .persist(), requested on first save). 'denied'/'unknown' means the
    * draft store may be evicted under disk pressure — surfaced honestly
    * in the status bar. null = not yet requested.
    */
-  storagePersist: 'granted' | 'denied' | 'unsupported' | 'unknown' | null
-  setStoragePersist: (v: UiState['storagePersist']) => void
+  storagePersist: "granted" | "denied" | "unsupported" | "unknown" | null;
+  setStoragePersist: (v: UiState["storagePersist"]) => void;
   /** Account dropdown open state (the guest banner opens it remotely). */
-  accountMenuOpen: boolean
-  setAccountMenuOpen: (open: boolean) => void
+  accountMenuOpen: boolean;
+  setAccountMenuOpen: (open: boolean) => void;
   /** Session-scoped dismissal of the guest-work-is-device-only banner. */
-  guestBannerDismissed: boolean
-  dismissGuestBanner: () => void
+  guestBannerDismissed: boolean;
+  dismissGuestBanner: () => void;
   /** Ctrl+K command palette. */
-  paletteOpen: boolean
-  setPaletteOpen: (open: boolean) => void
+  paletteOpen: boolean;
+  setPaletteOpen: (open: boolean) => void;
   /** Scene navigator as an overlay drawer on narrow viewports. */
-  drawerOpen: boolean
-  setDrawerOpen: (open: boolean) => void
+  drawerOpen: boolean;
+  setDrawerOpen: (open: boolean) => void;
 
-  startSprint: (minutes: number, targetWords: number, currentWords: number) => void
-  endSprint: () => void
-  setView: (v: AppView) => void
-  toggleSidebar: () => void
-  toggleNotes: () => void
-  toggleFocusMode: () => void
-  toggleDarkMode: () => void
-  setActiveElement: (id: string | null) => void
-  requestCaret: (elementId: string, offset: number, center?: boolean) => void
-  clearPendingCaret: () => void
-  setTagFilter: (tagId: string | null) => void
+  startSprint: (
+    minutes: number,
+    targetWords: number,
+    currentWords: number,
+  ) => void;
+  endSprint: () => void;
+  setView: (v: AppView) => void;
+  toggleSidebar: () => void;
+  toggleNotes: () => void;
+  toggleFocusMode: () => void;
+  toggleDarkMode: () => void;
+  setActiveElement: (id: string | null) => void;
+  requestCaret: (elementId: string, offset: number, center?: boolean) => void;
+  clearPendingCaret: () => void;
+  setTagFilter: (tagId: string | null) => void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
-  view: 'editor',
+  view: "editor",
   sidebarOpen: true,
   notesOpen: false,
   focusMode: false,
-  darkMode: false,
+  // Default to the OS setting; the header toggle overrides it per session.
+  darkMode:
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches,
   activeElementId: null,
   pendingCaret: null,
   tagFilter: null,
@@ -107,4 +115,4 @@ export const useUiStore = create<UiState>((set) => ({
     set({ pendingCaret: { elementId, offset, center } }),
   clearPendingCaret: () => set({ pendingCaret: null }),
   setTagFilter: (tagFilter) => set({ tagFilter }),
-}))
+}));

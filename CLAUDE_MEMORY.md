@@ -23,6 +23,9 @@ React autoFocus fires at commit; a same-open effect that calls document.activeEl
 ## zoom-based page scaling must measure the un-zoomed parent
 `zoom` participates in layout, so it's right for scaling the script page (caret/virtualization keep working) — but a ResizeObserver on the zoomed element reports its own scaled coordinate space and feeds back. Observe the scroll parent.
 
+## Design system is now "Instrument" (cool cobalt/navy), not warm
+The app was re-skinned from the warm "writer's-desk" palette to the Instrument system: surfaces bg/surface/sunken, text ink/ink-2/ink-3, one cobalt --accent (primary+active ONLY), data-blue/violet/teal/coral for charts+scene-coding, semantic soft-pairs (on-*) for small alert text. Dark = Midnight navy #0E1426, never black. Fonts: Schibsted Grotesk chrome (no Playfair — user chose neutral sans), Courier Prime kept for the screenplay page/title-page/print (that's a feature, not chrome). Spec --ink-3 #9298a4 was darkened to #636975 (light)/#8493ad (dark) to pass WCAG AA on small text. Never reintroduce warm/amber/gold.
+
 ## Tokens are the only palette
 All chrome colors are semantic CSS vars (--desk/--ink/--brass/--viz-*) flipped by .dark and mapped via Tailwind v4 `@theme inline`. Contrast values were computed (ink-faint ≥4.5:1 on every desk surface); axe-core runs in smoke-a11y.mjs — keep it at zero critical/serious. Never reintroduce raw gray-*/blue-* classes.
 

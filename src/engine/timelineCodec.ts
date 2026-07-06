@@ -12,32 +12,32 @@
  * The encoded timeline is pruned to a byte budget from the oldest end, and
  * the oldest surviving entry is always re-encoded as a keyframe.
  */
-import type { HistoryEntry, ScriptElement, TitlePage } from '../types'
+import type { HistoryEntry, ScriptElement, TitlePage } from "../types";
 
-export const TIMELINE_BYTE_BUDGET = 8 * 1024 * 1024
-const KEYFRAME_EVERY = 10
+export const TIMELINE_BYTE_BUDGET = 8 * 1024 * 1024;
+const KEYFRAME_EVERY = 10;
 
 export interface StoredTimelineEntry {
-  id: string
-  at: number
-  label: string
-  pageCount: number
-  words: number
-  titlePage: TitlePage
+  id: string;
+  at: number;
+  label: string;
+  pageCount: number;
+  words: number;
+  titlePage: TitlePage;
   /** Keyframe: the complete element array. */
-  full?: ScriptElement[]
+  full?: ScriptElement[];
   /** Delta against the previous entry's elements. */
-  delta?: { prefix: number; suffix: number; middle: ScriptElement[] }
+  delta?: { prefix: number; suffix: number; middle: ScriptElement[] };
 }
 
 export interface StoredTimeline {
-  v: 1
-  entries: StoredTimelineEntry[]
+  v: 1;
+  entries: StoredTimelineEntry[];
 }
 
 /** Field-level equality; entries loaded from disk lose reference sharing. */
 function sameElement(a: ScriptElement, b: ScriptElement): boolean {
-  if (a === b) return true
+  if (a === b) return true;
   return (
     a.id === b.id &&
     a.type === b.type &&
@@ -48,31 +48,31 @@ function sameElement(a: ScriptElement, b: ScriptElement): boolean {
     sameStringArray(a.tags, b.tags) &&
     sameStringArray(a.alternates, b.alternates) &&
     a.activeAlternate === b.activeAlternate
-  )
+  );
 }
 
 function sameStringArray(a?: string[], b?: string[]): boolean {
-  if (a === b) return true
-  if (!a || !b || a.length !== b.length) return false
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
-  return true
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 
 function computeDelta(
   prev: ScriptElement[],
   cur: ScriptElement[],
 ): { prefix: number; suffix: number; middle: ScriptElement[] } {
-  const max = Math.min(prev.length, cur.length)
-  let prefix = 0
-  while (prefix < max && sameElement(prev[prefix], cur[prefix])) prefix++
-  let suffix = 0
+  const max = Math.min(prev.length, cur.length);
+  let prefix = 0;
+  while (prefix < max && sameElement(prev[prefix], cur[prefix])) prefix++;
+  let suffix = 0;
   while (
     suffix < max - prefix &&
     sameElement(prev[prev.length - 1 - suffix], cur[cur.length - 1 - suffix])
   ) {
-    suffix++
+    suffix++;
   }
-  return { prefix, suffix, middle: cur.slice(prefix, cur.length - suffix) }
+  return { prefix, suffix, middle: cur.slice(prefix, cur.length - suffix) };
 }
 
 function applyDelta(
@@ -83,7 +83,7 @@ function applyDelta(
     ...prev.slice(0, delta.prefix),
     ...delta.middle,
     ...prev.slice(prev.length - delta.suffix),
-  ]
+  ];
 }
 
 function encodeEntry(
@@ -98,24 +98,24 @@ function encodeEntry(
     pageCount: entry.pageCount,
     words: entry.words,
     titlePage: entry.titlePage,
-  }
+  };
   if (forceKeyframe || !prevElements) {
-    base.full = entry.elements
-    return base
+    base.full = entry.elements;
+    return base;
   }
-  const delta = computeDelta(prevElements, entry.elements)
+  const delta = computeDelta(prevElements, entry.elements);
   // A delta bigger than the content itself gains nothing — keyframe instead.
   if (delta.middle.length >= entry.elements.length) {
-    base.full = entry.elements
+    base.full = entry.elements;
   } else {
-    base.delta = delta
+    base.delta = delta;
   }
-  return base
+  return base;
 }
 
 function entrySize(e: StoredTimelineEntry): number {
   // Approximate serialized bytes; exact enough to enforce a budget.
-  return JSON.stringify(e).length
+  return JSON.stringify(e).length;
 }
 
 /**
@@ -127,44 +127,48 @@ export function encodeTimeline(
   entries: HistoryEntry[],
   budgetBytes: number = TIMELINE_BYTE_BUDGET,
 ): StoredTimeline {
-  if (entries.length === 0) return { v: 1, entries: [] }
+  if (entries.length === 0) return { v: 1, entries: [] };
 
   const encodeAll = (list: HistoryEntry[]): StoredTimelineEntry[] =>
     list.map((entry, i) =>
-      encodeEntry(entry, i === 0 ? null : list[i - 1].elements, i % KEYFRAME_EVERY === 0),
-    )
+      encodeEntry(
+        entry,
+        i === 0 ? null : list[i - 1].elements,
+        i % KEYFRAME_EVERY === 0,
+      ),
+    );
 
-  let list = entries
-  let encoded = encodeAll(list)
-  let total = encoded.reduce((a, e) => a + entrySize(e), 0)
+  let list = entries;
+  let encoded = encodeAll(list);
+  let total = encoded.reduce((a, e) => a + entrySize(e), 0);
 
   while (total > budgetBytes && list.length > 1) {
     // Drop the oldest entry; the new head re-encodes as a keyframe.
-    list = list.slice(1)
-    encoded = encodeAll(list)
-    total = encoded.reduce((a, e) => a + entrySize(e), 0)
+    list = list.slice(1);
+    encoded = encodeAll(list);
+    total = encoded.reduce((a, e) => a + entrySize(e), 0);
   }
 
-  return { v: 1, entries: encoded }
+  return { v: 1, entries: encoded };
 }
 
 /** Reconstruct full HistoryEntry objects from an encoded timeline. */
 export function decodeTimeline(stored: StoredTimeline | null): HistoryEntry[] {
-  if (!stored || stored.v !== 1 || !Array.isArray(stored.entries)) return []
-  const out: HistoryEntry[] = []
-  let prev: ScriptElement[] | null = null
+  if (!stored || stored.v !== 1 || !Array.isArray(stored.entries)) return [];
+  const out: HistoryEntry[] = [];
+  let prev: ScriptElement[] | null = null;
   for (const e of stored.entries) {
-    let elements: ScriptElement[]
+    let elements: ScriptElement[];
     if (e.full) {
-      elements = e.full
+      elements = e.full;
     } else if (e.delta && prev) {
-      elements = applyDelta(prev, e.delta)
+      elements = applyDelta(prev, e.delta);
     } else {
       // Corrupt chain (delta with no base): skip this entry and everything
       // chained to it, rather than reconstructing wrong content. Entries
       // already decoded remain valid restore points.
-      prev = null
-      continue
+      prev = null;
+      continue;
     }
     out.push({
       id: e.id,
@@ -174,8 +178,8 @@ export function decodeTimeline(stored: StoredTimeline | null): HistoryEntry[] {
       words: e.words,
       titlePage: e.titlePage,
       elements,
-    })
-    prev = elements
+    });
+    prev = elements;
   }
-  return out
+  return out;
 }

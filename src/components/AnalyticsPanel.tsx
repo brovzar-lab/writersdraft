@@ -6,14 +6,19 @@ import type { CharacterProfile } from "../types";
 import { useUiStore } from "../stores/uiStore";
 import { IconFilm } from "./icons";
 
-const GENDERS: CharacterProfile["gender"][] = ["female", "male", "nonbinary", "unspecified"];
+const GENDERS: CharacterProfile["gender"][] = [
+  "female",
+  "male",
+  "nonbinary",
+  "unspecified",
+];
 /** Validated categorical hues; 'unspecified' is the neutral Other slot
  *  (identity is never color-alone: every use pairs a swatch with a label). */
 const GENDER_COLORS: Record<CharacterProfile["gender"], string> = {
-  female: "var(--viz-1)",
-  male: "var(--viz-2)",
-  nonbinary: "var(--viz-3)",
-  unspecified: "var(--viz-neutral)",
+  female: "var(--data-violet)",
+  male: "var(--data-blue)",
+  nonbinary: "var(--data-teal)",
+  unspecified: "var(--ink-3)",
 };
 
 export function AnalyticsPanel() {
@@ -32,15 +37,15 @@ export function AnalyticsPanel() {
   if (stats.length === 0) {
     return (
       <div className="mx-auto flex h-full max-w-md flex-col items-center justify-center gap-3 p-6 text-center font-ui">
-        <IconFilm size={28} className="text-ink-faint" />
+        <IconFilm size={28} className="text-ink-3" />
         <h1 className="text-base font-semibold text-ink">No dialogue yet</h1>
-        <p className="text-sm text-ink-faint">
-          Once your characters start talking, this view shows who speaks, how much, and how your
-          gender balance breaks down.
+        <p className="text-sm text-ink-3">
+          Once your characters start talking, this view shows who speaks, how
+          much, and how your gender balance breaks down.
         </p>
         <button
           onClick={() => setView("editor")}
-          className="rounded-md bg-brass px-3 py-1.5 text-xs font-medium text-on-brass hover:bg-brass-strong"
+          className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-on-accent hover:bg-accent-press"
         >
           Back to the script
         </button>
@@ -51,12 +56,13 @@ export function AnalyticsPanel() {
   return (
     <div className="mx-auto max-w-3xl p-6 font-ui">
       <h1 className="text-lg font-semibold text-ink">Dialogue Analytics</h1>
-      <p className="mb-6 text-sm text-ink-faint">
-        Who speaks, how much, and in how many scenes. Assign genders to see your balance.
+      <p className="mb-6 text-sm text-ink-3">
+        Who speaks, how much, and in how many scenes. Assign genders to see your
+        balance.
       </p>
 
       <section className="mb-8">
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-2">
           Words spoken by gender
         </h2>
         {/* Composition bar: thin, 2px surface gaps between segments. */}
@@ -76,7 +82,7 @@ export function AnalyticsPanel() {
             ) : null,
           )}
         </div>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-ink-faint">
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-ink-3">
           {GENDERS.map((g) => (
             <span key={g} className="flex items-center gap-1.5">
               <span
@@ -84,8 +90,8 @@ export function AnalyticsPanel() {
                 className="h-2.5 w-2.5 rounded-sm"
                 style={{ background: GENDER_COLORS[g] }}
               />
-              <span className="text-ink-soft">{g}</span> {byGender.words[g]} words ·{" "}
-              {byGender.speeches[g]} speeches · {byGender.characters[g]}{" "}
+              <span className="text-ink-2">{g}</span> {byGender.words[g]} words
+              · {byGender.speeches[g]} speeches · {byGender.characters[g]}{" "}
               {byGender.characters[g] === 1 ? "character" : "characters"}
             </span>
           ))}
@@ -93,13 +99,13 @@ export function AnalyticsPanel() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-2">
           Words per character
         </h2>
         {/* Bar table: each row is name · gender · bar · value — the chart IS
             the table view, so identity and magnitude never rely on color. */}
         <div className="flex flex-col">
-          <div className="grid grid-cols-[10rem_7rem_1fr_7rem] gap-2 border-b border-line pb-1 text-[10px] uppercase tracking-wide text-ink-faint">
+          <div className="grid grid-cols-[10rem_7rem_1fr_7rem] gap-2 border-b border-line pb-1 text-[10px] uppercase tracking-wide text-ink-3">
             <span>Character</span>
             <span>Gender</span>
             <span>Words</span>
@@ -121,11 +127,14 @@ export function AnalyticsPanel() {
                   style={{ background: GENDER_COLORS[s.gender] }}
                 />
                 <select
-                  className="w-full rounded border border-line bg-transparent px-1 py-0.5 text-[11px] text-ink-soft"
+                  className="w-full rounded border border-line bg-transparent px-1 py-0.5 text-[11px] text-ink-2"
                   value={s.gender}
                   aria-label={`Gender of ${s.name}`}
                   onChange={(e) =>
-                    setCharacterGender(s.name, e.target.value as CharacterProfile["gender"])
+                    setCharacterGender(
+                      s.name,
+                      e.target.value as CharacterProfile["gender"],
+                    )
                   }
                 >
                   {GENDERS.map((g) => (
@@ -139,12 +148,16 @@ export function AnalyticsPanel() {
                 {/* Thin mark, rounded at the value end only, anchored left. */}
                 <span
                   aria-hidden
-                  className="h-2.5 rounded-r bg-brass"
-                  style={{ width: `${Math.max((s.words / maxWords) * 100, 1)}%` }}
+                  className="h-2.5 rounded-r bg-accent"
+                  style={{
+                    width: `${Math.max((s.words / maxWords) * 100, 1)}%`,
+                  }}
                 />
-                <span className="shrink-0 text-[11px] text-ink-soft">{s.words}</span>
+                <span className="shrink-0 text-[11px] text-ink-2">
+                  {s.words}
+                </span>
               </span>
-              <span className="text-right text-[11px] text-ink-faint">
+              <span className="text-right text-[11px] text-ink-3">
                 {s.speeches} · {s.scenes}
               </span>
             </div>

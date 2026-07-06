@@ -17,14 +17,15 @@ import { create } from "zustand";
 type ButtonVariant = "ghost" | "primary" | "danger" | "toggle-on";
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
+  // Ghost/inputs are flat; depth lives only on the primary button and cards.
   ghost:
-    "border border-line bg-transparent text-ink-soft hover:text-ink hover:border-line-strong hover:bg-desk-sunken/60",
-  primary:
-    "border border-brass bg-brass text-on-brass hover:bg-brass-strong hover:border-brass-strong",
+    "border border-line bg-transparent text-ink-2 hover:text-ink hover:border-ink-3/40 hover:bg-sunken/60",
+  // Primary carries real elevation + press feel (see .btn-primary in CSS).
+  primary: "btn-primary",
   danger:
-    "border border-danger/40 bg-transparent text-danger hover:bg-danger/10",
+    "border border-error/40 bg-transparent text-on-error hover:bg-error-soft",
   "toggle-on":
-    "border border-brass/50 bg-brass-soft text-brass-strong hover:border-brass",
+    "border border-accent/40 bg-accent-soft text-on-soft hover:border-accent",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -109,7 +110,7 @@ export function Menu({
       {open && (
         <div
           role="menu"
-          className={`absolute ${align === "right" ? "right-0" : "left-0"} top-full z-30 mt-1 ${width} overflow-hidden rounded-lg border border-line bg-desk-raised py-1 shadow-lg`}
+          className={`absolute ${align === "right" ? "right-0" : "left-0"} top-full z-30 mt-1 ${width} overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-lg`}
         >
           {children}
         </div>
@@ -132,7 +133,7 @@ export function MenuItem({
       role="menuitem"
       onClick={onClick}
       title={tip}
-      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ink-soft hover:bg-desk-sunken hover:text-ink"
+      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ink-2 hover:bg-sunken hover:text-ink"
     >
       {children}
     </button>
@@ -186,17 +187,17 @@ export function Toaster() {
           role="status"
           className={`pointer-events-auto flex items-center gap-3 rounded-lg border px-3 py-2 font-ui text-xs shadow-lg ${
             t.kind === "error"
-              ? "border-danger/40 bg-desk-raised text-danger"
+              ? "border-error/40 bg-surface text-on-error"
               : t.kind === "success"
-                ? "border-ok/40 bg-desk-raised text-ok"
-                : "border-line bg-desk-raised text-ink"
+                ? "border-success/40 bg-surface text-on-success"
+                : "border-line bg-surface text-ink"
           }`}
         >
           <span>{t.text}</span>
           <button
             onClick={() => dismiss(t.id)}
             aria-label="Dismiss notification"
-            className="text-ink-faint hover:text-ink"
+            className="text-ink-3 hover:text-ink"
           >
             ×
           </button>

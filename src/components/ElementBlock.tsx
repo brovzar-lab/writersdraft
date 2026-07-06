@@ -302,7 +302,7 @@ export const ElementBlock = memo(function ElementBlock({
             trigger={() => (
               <button
                 data-testid="type-pill"
-                className="whitespace-nowrap rounded-full border border-line bg-desk-raised px-2 py-px font-ui text-[10px] font-medium text-ink-faint shadow-sm transition-colors hover:border-brass hover:text-brass"
+                className="whitespace-nowrap rounded-full border border-line bg-surface px-2 py-px font-ui text-[10px] font-medium text-ink-3 shadow-sm transition-colors hover:border-accent hover:text-accent"
                 title="Change element type"
               >
                 {ELEMENT_LABELS[element.type]}
@@ -318,7 +318,7 @@ export const ElementBlock = memo(function ElementBlock({
                   requestCaret(element.id, element.text.length);
                 }}
               >
-                <span className={t === element.type ? "text-brass" : ""}>
+                <span className={t === element.type ? "text-accent" : ""}>
                   {ELEMENT_LABELS[t]}
                 </span>
               </MenuItem>
@@ -345,7 +345,7 @@ export const ElementBlock = memo(function ElementBlock({
         contentEditable={!element.locked}
         suppressContentEditableWarning
         spellCheck={element.type === "action" || element.type === "dialogue"}
-        className={`element-block font-screenplay transition-colors duration-150 ${active ? "bg-brass-soft/50" : ""}`}
+        className={`element-block font-screenplay transition-colors duration-150 ${active ? "bg-accent-soft/50" : ""}`}
         style={{
           marginLeft: layout.rightAlign ? undefined : `${layout.indent}ch`,
           maxWidth: `${layout.width}ch`,
@@ -369,7 +369,7 @@ export const ElementBlock = memo(function ElementBlock({
           data-testid="smarttype-popup"
           role="listbox"
           aria-label="SmartType suggestions"
-          className="absolute z-20 mt-0.5 min-w-44 overflow-hidden rounded-md border border-line bg-desk-raised py-0.5 font-ui shadow-lg"
+          className="absolute z-20 mt-0.5 min-w-44 overflow-hidden rounded-md border border-line bg-surface py-0.5 font-ui shadow-lg"
           style={{ left: `${layout.indent}ch` }}
         >
           {suggestions.map((s, i) => (
@@ -384,26 +384,26 @@ export const ElementBlock = memo(function ElementBlock({
                 }}
                 onMouseEnter={() => setSugIndex(i)}
                 className={`flex w-full items-baseline gap-0 px-2.5 py-1 text-left text-[11px] ${
-                  i === sugIndex ? "bg-brass-soft text-ink" : "text-ink-soft"
+                  i === sugIndex ? "bg-accent-soft text-ink" : "text-ink-2"
                 }`}
               >
                 <span className="font-screenplay text-xs uppercase">
                   {s.text.slice(0, s.text.length - s.completion.length)}
-                  <span className="text-brass">{s.completion}</span>
+                  <span className="text-ink-3">{s.completion}</span>
                 </span>
               </button>
             </li>
           ))}
           <li
             aria-hidden
-            className="border-t border-line/60 px-2.5 pb-0.5 pt-1 text-[9px] text-ink-faint"
+            className="border-t border-line/60 px-2.5 pb-0.5 pt-1 text-[9px] text-ink-3"
           >
             ↑↓ choose · Enter accept · Esc dismiss
           </li>
         </ul>
       )}
       {element.sceneNumber && element.type === "scene_heading" && (
-        <span className="absolute -left-10 top-0 font-screenplay text-ink-faint select-none">
+        <span className="absolute -left-10 top-0 font-screenplay text-ink-3 select-none">
           {element.sceneNumber}
         </span>
       )}

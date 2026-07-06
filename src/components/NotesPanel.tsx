@@ -3,13 +3,14 @@ import { useState } from "react";
 import { useScriptStore } from "../stores/scriptStore";
 import { useUiStore } from "../stores/uiStore";
 
+/* Tag colors from the data set — categories, not warnings. */
 const TAG_COLORS = [
-  "#f87171",
-  "#fbbf24",
-  "#4ade80",
-  "#60a5fa",
-  "#a78bfa",
-  "#f472b6",
+  "#2b54f0",
+  "#6e4bf0",
+  "#119c8b",
+  "#ff6b5c",
+  "#5e80ff",
+  "#2fc9b0",
 ];
 
 export function NotesPanel() {
@@ -24,9 +25,9 @@ export function NotesPanel() {
   const openNotes = script.notes.filter((n) => !n.resolved);
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto border-l border-line bg-desk p-3 text-sm">
+    <aside className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto border-l border-line bg-bg p-3 text-sm">
       <section>
-        <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+        <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-3">
           Tags
         </h2>
         <div className="flex flex-wrap gap-1.5 mb-2">
@@ -34,7 +35,7 @@ export function NotesPanel() {
             <span key={t.id} className="group flex items-center">
               <button
                 onClick={() => setTagFilter(tagFilter === t.id ? null : t.id)}
-                className={`rounded-full px-2 py-0.5 text-xs text-white ${tagFilter === t.id ? "ring-2 ring-offset-1 ring-brass" : ""}`}
+                className={`rounded-full px-2 py-0.5 text-xs text-white ${tagFilter === t.id ? "ring-2 ring-offset-1 ring-accent" : ""}`}
                 style={{ background: t.color }}
                 title="Click to filter script by this tag"
               >
@@ -42,7 +43,7 @@ export function NotesPanel() {
               </button>
               <button
                 onClick={() => removeTag(t.id)}
-                className="ml-0.5 hidden text-ink-faint hover:text-danger group-hover:inline"
+                className="ml-0.5 hidden text-ink-3 hover:text-on-error group-hover:inline"
                 aria-label={`delete tag ${t.name}`}
               >
                 ×
@@ -66,12 +67,12 @@ export function NotesPanel() {
             value={tagName}
             onChange={(e) => setTagName(e.target.value)}
             placeholder="New tag (subplot, theme…)"
-            className="w-full rounded border border-line bg-desk-raised px-2 py-1 text-xs"
+            className="w-full rounded border border-line bg-surface px-2 py-1 text-xs"
           />
         </form>
         {activeEl && script.tags.length > 0 && (
           <div className="mt-2">
-            <p className="text-xs text-ink-faint mb-1">Tag current element:</p>
+            <p className="text-xs text-ink-3 mb-1">Tag current element:</p>
             <div className="flex flex-wrap gap-1">
               {script.tags.map((t) => {
                 const on = (activeEl.tags ?? []).includes(t.id);
@@ -79,7 +80,7 @@ export function NotesPanel() {
                   <button
                     key={t.id}
                     onClick={() => toggleElementTag(activeEl.id, t.id)}
-                    className={`rounded px-1.5 py-0.5 text-xs border ${on ? "text-white" : "text-ink-faint border-line-strong"}`}
+                    className={`rounded px-1.5 py-0.5 text-xs border ${on ? "text-white" : "text-ink-3 border-line"}`}
                     style={
                       on ? { background: t.color, borderColor: t.color } : {}
                     }
@@ -94,7 +95,7 @@ export function NotesPanel() {
       </section>
 
       <section className="flex-1">
-        <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+        <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-3">
           Notes {openNotes.length > 0 && `(${openNotes.length})`}
         </h2>
         {activeEl ? (
@@ -112,14 +113,14 @@ export function NotesPanel() {
               onChange={(e) => setNoteText(e.target.value)}
               rows={2}
               placeholder="Note on the current element…"
-              className="w-full rounded border border-line bg-desk-raised px-2 py-1 text-xs"
+              className="w-full rounded border border-line bg-surface px-2 py-1 text-xs"
             />
-            <button className="mt-1 rounded bg-brass px-2 py-1 text-xs text-white hover:bg-brass-strong">
+            <button className="mt-1 rounded bg-accent px-2 py-1 text-xs text-white hover:bg-accent-press">
               Add note
             </button>
           </form>
         ) : (
-          <p className="text-xs text-ink-faint">
+          <p className="text-xs text-ink-3">
             Click into the script to attach a note.
           </p>
         )}
@@ -129,17 +130,17 @@ export function NotesPanel() {
             return (
               <li
                 key={n.id}
-                className="rounded border border-brass/30 bg-brass-soft/50 p-2"
+                className="rounded border border-accent/30 bg-accent-soft/50 p-2"
               >
-                <p className="text-xs text-ink-soft">{n.text}</p>
-                <p className="mt-1 truncate text-[10px] text-ink-faint font-screenplay">
+                <p className="text-xs text-ink-2">{n.text}</p>
+                <p className="mt-1 truncate text-[10px] text-ink-3 font-screenplay">
                   {el
                     ? el.text.slice(0, 40) || "(empty element)"
                     : "(deleted element)"}
                 </p>
                 <button
                   onClick={() => resolveNote(n.id)}
-                  className="mt-1 text-[10px] text-ok hover:underline"
+                  className="mt-1 text-[10px] text-on-success hover:underline"
                 >
                   Resolve
                 </button>

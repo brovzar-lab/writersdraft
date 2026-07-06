@@ -1,6 +1,32 @@
 # STATUS
 
-## Phase 3 — UI/UX (workstreams H–K), latest run
+## Instrument design system re-skin (latest — PENDING USER REVIEW)
+
+Applied the user-provided Instrument design brief (styling only; no data,
+logic, or feature changes). This replaces the warm "writer's-desk" look
+from Phase 3 with a cool cobalt/navy system. **Committed to the feature
+branch as a reviewable checkpoint — not finalized.** The brief asked to
+review in the browser before finalizing.
+
+- Cool palette: `#EAECF1` desk, white paper, `#0B0D12` ink, one cobalt
+  accent (`#2B54F0`) on primary/active only, data set (blue/violet/teal/
+  coral) for charts + scene-coding, semantic soft-pairs for alerts. Dark
+  twin is Midnight navy `#0E1426`, never black.
+- Schibsted Grotesk chrome + global tabular figures. No Playfair (user
+  chose neutral sans). **Courier Prime kept on the screenplay page, title
+  page, and print** — screenwriting formatting, not chrome.
+- Cards get two-layer shadows (no hairline-only cards; dark adds a
+  border); primary button gets the cobalt glow + scale(0.97) press;
+  accent discipline enforced (pulled cobalt off logo/sprint/arrows).
+- Beat-board/tag/collaborator swatches moved from amber/red to the data
+  set; semantic colors never render as small text (on-* soft pairing).
+- Dark defaults from `prefers-color-scheme`, header toggle overrides.
+- Verified: 171 tests, tsc, build, all six behavior smokes, axe-core
+  WCAG AA = zero violations (light + dark). Two brief-consistent contrast
+  fixes: spec `--ink-3` darkened for AA; warning status text → soft pair.
+- Judgment calls logged in ASSUMPTIONS.md.
+
+## Phase 3 — UI/UX (workstreams H–K), previous run
 
 Writer's-desk visual direction: warm paper/ink/brass, the page always reads
 as paper, the chrome recedes. One green commit per workstream.

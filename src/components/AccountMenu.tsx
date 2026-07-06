@@ -61,8 +61,8 @@ export function AccountMenu({
         onClick={() => setOpen(!open)}
         className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium border transition-colors ${
           user && !user.isAnonymous
-            ? "border-ok/50 text-ok hover:bg-desk-sunken/60"
-            : "border-line text-ink-soft hover:border-line-strong hover:bg-desk-sunken/60 hover:text-ink"
+            ? "border-success/50 text-on-success hover:bg-sunken/60"
+            : "border-line text-ink-2 hover:border-line hover:bg-sunken/60 hover:text-ink"
         }`}
         title="Account"
         aria-label={`Account: ${label}`}
@@ -70,15 +70,15 @@ export function AccountMenu({
         <IconUser /> {label}
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-20 mt-1 w-64 rounded-lg border border-line bg-desk-raised p-3 text-xs shadow-lg">
+        <div className="absolute right-0 top-full z-20 mt-1 w-64 rounded-lg border border-line bg-surface p-3 text-xs shadow-lg">
           {user && !user.isAnonymous ? (
-            <p className="text-ink-soft">
+            <p className="text-ink-2">
               Signed in as <b>{user.email}</b>. Your scripts sync to this
               account on any device.
             </p>
           ) : (
             <>
-              <p className="mb-2 text-ink-soft">
+              <p className="mb-2 text-ink-2">
                 {user
                   ? "Your cloud copy is tied to this browser. Add an email so you can recover your scripts anywhere."
                   : "Cloud sync is offline. You can still link an account once a connection is available."}
@@ -97,7 +97,7 @@ export function AccountMenu({
                 placeholder="password (6+ characters)"
                 className="mb-2 w-full rounded border border-line bg-transparent px-2 py-1"
               />
-              {error && <p className="mb-2 text-danger">{error}</p>}
+              {error && <p className="mb-2 text-on-error">{error}</p>}
               <div className="flex gap-2">
                 <button
                   disabled={busy || !email || password.length < 6}
@@ -108,7 +108,7 @@ export function AccountMenu({
                       await linkWithEmail(email, password);
                     })
                   }
-                  className="flex-1 rounded bg-brass px-2 py-1 text-white disabled:opacity-40"
+                  className="flex-1 rounded bg-accent px-2 py-1 text-white disabled:opacity-40"
                 >
                   Create account
                 </button>
@@ -121,7 +121,7 @@ export function AccountMenu({
                       await signInWithEmail(email, password);
                     })
                   }
-                  className="flex-1 rounded border border-line-strong px-2 py-1 disabled:opacity-40"
+                  className="flex-1 rounded border border-line px-2 py-1 disabled:opacity-40"
                 >
                   Sign in
                 </button>

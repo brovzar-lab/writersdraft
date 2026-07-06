@@ -17,11 +17,11 @@ export function SceneNavigator() {
 
   return (
     <nav className="flex flex-col gap-1 p-2 overflow-y-auto">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-faint px-2 pt-2">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-3 px-2 pt-2">
         Scenes
       </h2>
       {scenes.length === 0 && (
-        <p className="text-sm text-ink-faint px-2">No scenes yet.</p>
+        <p className="text-sm text-ink-3 px-2">No scenes yet.</p>
       )}
       {scenes.map((sc, i) => (
         <button
@@ -32,11 +32,11 @@ export function SceneNavigator() {
             // even when it is virtualized out of the DOM right now.
             requestCaret(sc.id, el ? el.text.length : 0, true);
           }}
-          className="flex items-start gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-desk-sunken"
+          className="flex items-start gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-sunken"
         >
           <span
             className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-            style={{ background: sc.color ?? "var(--line-strong)" }}
+            style={{ background: sc.color ?? "var(--line)" }}
           />
           <span className="flex-1 min-w-0">
             <span className="block truncate font-medium text-ink">
@@ -44,12 +44,12 @@ export function SceneNavigator() {
               {sc.heading}
             </span>
             {sc.synopsis && (
-              <span className="block truncate text-xs text-ink-faint">
+              <span className="block truncate text-xs text-ink-3">
                 {sc.synopsis}
               </span>
             )}
           </span>
-          <span className="text-[10px] text-ink-faint shrink-0">
+          <span className="text-[10px] text-ink-3 shrink-0">
             p{pageOf.get(sc.id) ?? 1}
           </span>
         </button>

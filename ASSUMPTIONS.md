@@ -3,6 +3,27 @@
 Decisions made where the audit report left the choice open. Each picked the
 safer option for the writer's draft.
 
+## Instrument re-skin — judgment calls
+
+- **Courier Prime stays on the screenplay page, title page, and print.**
+  The design brief says "styling only, don't touch features"; the
+  monospace screenplay IS the feature (1-page-per-minute timing), so the
+  page keeps Courier while all chrome moves to Schibsted.
+- **Playfair Display dropped entirely** (brief specified it for titles).
+  User chose "neutral sans" — titles are bold Schibsted. Re-addable on
+  marketing/title surfaces if wanted; never on the script.
+- **Spec `--ink-3` (#9298a4) darkened** to #636975 (light) / #8493ad
+  (dark) so small text clears WCAG AA — the exact hex failed contrast.
+  Kept the brief's own spirit ("push the contrast, never too thin").
+- **Semantic colors as small text → on-* soft pairing** (the brief's own
+  rule); full-strength warning/error/success only on icons and dots.
+- **Beat-board / tag / collaborator-cursor palettes** swapped from warm
+  (amber/red) to the data set — categories use data hues per the brief.
+- **Dark-mode script page is navy** (`#16203A`), not paper-white —
+  standard for dark editors; trivially changed to stay white if desired.
+- **Not merged/deployed**: committed to the feature branch only, pending
+  the user's in-browser review the brief asked for.
+
 ## Phase 3 (H–K) — UI/UX
 
 - **Visual direction is "writer's desk"** (user-selected): warm paper/ink/

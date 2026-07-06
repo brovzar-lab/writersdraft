@@ -250,7 +250,7 @@ const EditorPage = memo(function EditorPage({
     <div
       ref={ref}
       data-page-number={page.number}
-      className="script-page paper-shadow relative rounded-[3px] border border-line/60 bg-page"
+      className="script-page paper-shadow relative rounded-[3px] border border-line/60 bg-surface"
     >
       {page.number > 1 && (
         <span className="absolute top-[0.5in] right-[1in] font-screenplay text-ink select-none">

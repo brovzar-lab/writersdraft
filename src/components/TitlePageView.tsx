@@ -12,7 +12,7 @@ export function TitlePageView() {
     className = "",
   ) => (
     <input
-      className={`bg-transparent text-center font-screenplay outline-none placeholder:text-ink-faint/60 ${className}`}
+      className={`bg-transparent text-center font-screenplay outline-none placeholder:text-ink-3/60 ${className}`}
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
@@ -21,7 +21,7 @@ export function TitlePageView() {
 
   return (
     <div className="flex justify-center py-8">
-      <div className="script-page paper-shadow rounded-[3px] border border-line/60 bg-page flex flex-col items-center text-ink">
+      <div className="script-page paper-shadow rounded-[3px] border border-line/60 bg-surface flex flex-col items-center text-ink">
         <div className="mt-[2.5in] flex flex-col items-center gap-6 w-full">
           {field(
             tp.title,
@@ -45,7 +45,7 @@ export function TitlePageView() {
         </div>
         <div className="mt-auto mb-2 w-full">
           <textarea
-            className="w-1/2 resize-none bg-transparent font-screenplay text-sm outline-none placeholder:text-ink-faint/60"
+            className="w-1/2 resize-none bg-transparent font-screenplay text-sm outline-none placeholder:text-ink-3/60"
             rows={3}
             value={tp.contact}
             placeholder={"Contact\naddress / email"}

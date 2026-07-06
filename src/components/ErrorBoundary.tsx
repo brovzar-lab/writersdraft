@@ -49,9 +49,9 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
   render() {
     if (!this.state.error) return this.props.children;
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-desk p-8 text-center">
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-bg p-8 text-center">
         <h1 className="text-xl font-semibold text-ink">Something went wrong</h1>
-        <p className="max-w-md text-sm text-ink-soft">
+        <p className="max-w-md text-sm text-ink-2">
           The editor hit an unexpected error. Your script was saved locally the
           moment this happened. You can download a backup copy now, then reload
           to continue writing.
@@ -59,18 +59,18 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
         <div className="flex gap-3">
           <button
             onClick={this.download}
-            className="rounded border border-line-strong bg-desk-raised px-3 py-1.5 text-sm hover:border-brass"
+            className="rounded border border-line bg-surface px-3 py-1.5 text-sm hover:border-accent"
           >
             Download backup
           </button>
           <button
             onClick={() => location.reload()}
-            className="rounded bg-brass px-3 py-1.5 text-sm text-white hover:bg-brass-strong"
+            className="rounded bg-accent px-3 py-1.5 text-sm text-white hover:bg-accent-press"
           >
             Reload
           </button>
         </div>
-        <pre className="mt-4 max-w-lg overflow-auto rounded bg-desk-sunken p-2 text-left text-[10px] text-ink-faint">
+        <pre className="mt-4 max-w-lg overflow-auto rounded bg-sunken p-2 text-left text-[10px] text-ink-3">
           {String(this.state.error)}
         </pre>
       </div>

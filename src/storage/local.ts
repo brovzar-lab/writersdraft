@@ -9,42 +9,42 @@
  *   timelines  – delta-encoded version timelines keyed by script id
  *   meta       – small key/value pairs (current script id, migration flags)
  */
-import type { Script } from '../types'
-import type { StoredTimeline } from '../engine/timelineCodec'
+import type { Script } from "../types";
+import type { StoredTimeline } from "../engine/timelineCodec";
 
-const DB_NAME = 'writersdraft'
-const DB_VERSION = 1
-const STORES = ['scripts', 'timelines', 'meta'] as const
-type StoreName = (typeof STORES)[number]
+const DB_NAME = "writersdraft";
+const DB_VERSION = 1;
+const STORES = ["scripts", "timelines", "meta"] as const;
+type StoreName = (typeof STORES)[number];
 
-const FALLBACK_PREFIX = 'writersdraft:idb-fallback:'
+const FALLBACK_PREFIX = "writersdraft:idb-fallback:";
 
-let dbPromise: Promise<IDBDatabase | null> | null = null
+let dbPromise: Promise<IDBDatabase | null> | null = null;
 
 function openDb(): Promise<IDBDatabase | null> {
-  if (dbPromise) return dbPromise
+  if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve) => {
     try {
-      if (typeof indexedDB === 'undefined') {
-        resolve(null)
-        return
+      if (typeof indexedDB === "undefined") {
+        resolve(null);
+        return;
       }
-      const req = indexedDB.open(DB_NAME, DB_VERSION)
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
       req.onupgradeneeded = () => {
         for (const name of STORES) {
           if (!req.result.objectStoreNames.contains(name)) {
-            req.result.createObjectStore(name)
+            req.result.createObjectStore(name);
           }
         }
-      }
-      req.onsuccess = () => resolve(req.result)
-      req.onerror = () => resolve(null)
-      req.onblocked = () => resolve(null)
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+      req.onblocked = () => resolve(null);
     } catch {
-      resolve(null)
+      resolve(null);
     }
-  })
-  return dbPromise
+  });
+  return dbPromise;
 }
 
 function idbGet<T>(store: StoreName, key: string): Promise<T | null> {
@@ -52,14 +52,17 @@ function idbGet<T>(store: StoreName, key: string): Promise<T | null> {
     (db) =>
       new Promise((resolve, reject) => {
         if (!db) {
-          resolve(fallbackGet<T>(store, key))
-          return
+          resolve(fallbackGet<T>(store, key));
+          return;
         }
-        const req = db.transaction(store, 'readonly').objectStore(store).get(key)
-        req.onsuccess = () => resolve((req.result as T | undefined) ?? null)
-        req.onerror = () => reject(req.error)
+        const req = db
+          .transaction(store, "readonly")
+          .objectStore(store)
+          .get(key);
+        req.onsuccess = () => resolve((req.result as T | undefined) ?? null);
+        req.onerror = () => reject(req.error);
       }),
-  )
+  );
 }
 
 function idbPut(store: StoreName, key: string, value: unknown): Promise<void> {
@@ -67,17 +70,18 @@ function idbPut(store: StoreName, key: string, value: unknown): Promise<void> {
     (db) =>
       new Promise((resolve, reject) => {
         if (!db) {
-          fallbackPut(store, key, value)
-          resolve()
-          return
+          fallbackPut(store, key, value);
+          resolve();
+          return;
         }
-        const tx = db.transaction(store, 'readwrite')
-        tx.objectStore(store).put(value, key)
-        tx.oncomplete = () => resolve()
-        tx.onerror = () => reject(tx.error)
-        tx.onabort = () => reject(tx.error ?? new Error('idb transaction aborted'))
+        const tx = db.transaction(store, "readwrite");
+        tx.objectStore(store).put(value, key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () =>
+          reject(tx.error ?? new Error("idb transaction aborted"));
       }),
-  )
+  );
 }
 
 function idbDelete(store: StoreName, key: string): Promise<void> {
@@ -85,16 +89,16 @@ function idbDelete(store: StoreName, key: string): Promise<void> {
     (db) =>
       new Promise((resolve, reject) => {
         if (!db) {
-          fallbackDelete(store, key)
-          resolve()
-          return
+          fallbackDelete(store, key);
+          resolve();
+          return;
         }
-        const tx = db.transaction(store, 'readwrite')
-        tx.objectStore(store).delete(key)
-        tx.oncomplete = () => resolve()
-        tx.onerror = () => reject(tx.error)
+        const tx = db.transaction(store, "readwrite");
+        tx.objectStore(store).delete(key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
       }),
-  )
+  );
 }
 
 function idbGetAll<T>(store: StoreName): Promise<T[]> {
@@ -102,111 +106,117 @@ function idbGetAll<T>(store: StoreName): Promise<T[]> {
     (db) =>
       new Promise((resolve, reject) => {
         if (!db) {
-          resolve(fallbackGetAll<T>(store))
-          return
+          resolve(fallbackGetAll<T>(store));
+          return;
         }
-        const req = db.transaction(store, 'readonly').objectStore(store).getAll()
-        req.onsuccess = () => resolve(req.result as T[])
-        req.onerror = () => reject(req.error)
+        const req = db
+          .transaction(store, "readonly")
+          .objectStore(store)
+          .getAll();
+        req.onsuccess = () => resolve(req.result as T[]);
+        req.onerror = () => reject(req.error);
       }),
-  )
+  );
 }
 
 // --- localStorage fallback (only used when IndexedDB is unavailable) ---
 
 function fallbackKey(store: StoreName, key: string): string {
-  return `${FALLBACK_PREFIX}${store}:${key}`
+  return `${FALLBACK_PREFIX}${store}:${key}`;
 }
 
 function fallbackGet<T>(store: StoreName, key: string): T | null {
   try {
-    const raw = localStorage.getItem(fallbackKey(store, key))
-    return raw ? (JSON.parse(raw) as T) : null
+    const raw = localStorage.getItem(fallbackKey(store, key));
+    return raw ? (JSON.parse(raw) as T) : null;
   } catch {
-    return null
+    return null;
   }
 }
 
 function fallbackPut(store: StoreName, key: string, value: unknown): void {
-  localStorage.setItem(fallbackKey(store, key), JSON.stringify(value))
+  localStorage.setItem(fallbackKey(store, key), JSON.stringify(value));
 }
 
 function fallbackDelete(store: StoreName, key: string): void {
   try {
-    localStorage.removeItem(fallbackKey(store, key))
+    localStorage.removeItem(fallbackKey(store, key));
   } catch {
     // ignore
   }
 }
 
 function fallbackGetAll<T>(store: StoreName): T[] {
-  const out: T[] = []
+  const out: T[] = [];
   try {
-    const prefix = `${FALLBACK_PREFIX}${store}:`
+    const prefix = `${FALLBACK_PREFIX}${store}:`;
     for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i)
+      const k = localStorage.key(i);
       if (k?.startsWith(prefix)) {
-        const raw = localStorage.getItem(k)
-        if (raw) out.push(JSON.parse(raw) as T)
+        const raw = localStorage.getItem(k);
+        if (raw) out.push(JSON.parse(raw) as T);
       }
     }
   } catch {
     // ignore
   }
-  return out
+  return out;
 }
 
 // --- Public API ---
 
 export interface LocalScriptMeta {
-  id: string
-  title: string
-  updatedAt: number
-  elementCount: number
+  id: string;
+  title: string;
+  updatedAt: number;
+  elementCount: number;
 }
 
 export function putScript(script: Script): Promise<void> {
-  return idbPut('scripts', script.id, script)
+  return idbPut("scripts", script.id, script);
 }
 
 export function getScript(id: string): Promise<Script | null> {
-  return idbGet<Script>('scripts', id)
+  return idbGet<Script>("scripts", id);
 }
 
 export function deleteScript(id: string): Promise<void> {
-  return idbDelete('scripts', id).then(() => idbDelete('timelines', id))
+  return idbDelete("scripts", id).then(() => idbDelete("timelines", id));
 }
 
 export async function listScripts(): Promise<LocalScriptMeta[]> {
-  const all = await idbGetAll<Script>('scripts')
+  const all = await idbGetAll<Script>("scripts");
   return all
-    .filter((s) => s && typeof s.id === 'string')
+    .filter((s) => s && typeof s.id === "string")
     .map((s) => ({
       id: s.id,
-      title: s.titlePage?.title || 'Untitled',
-      updatedAt: typeof s.updatedAt === 'number' ? s.updatedAt : 0,
+      title: s.titlePage?.title || "Untitled",
+      updatedAt: typeof s.updatedAt === "number" ? s.updatedAt : 0,
       elementCount: Array.isArray(s.elements) ? s.elements.length : 0,
     }))
-    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
-export function putTimeline(scriptId: string, timeline: StoredTimeline): Promise<void> {
-  return idbPut('timelines', scriptId, timeline)
+export function putTimeline(
+  scriptId: string,
+  timeline: StoredTimeline,
+): Promise<void> {
+  return idbPut("timelines", scriptId, timeline);
 }
 
 export function getTimeline(scriptId: string): Promise<StoredTimeline | null> {
-  return idbGet<StoredTimeline>('timelines', scriptId)
+  return idbGet<StoredTimeline>("timelines", scriptId);
 }
 
 export function getMeta<T>(key: string): Promise<T | null> {
-  return idbGet<T>('meta', key)
+  return idbGet<T>("meta", key);
 }
 
 export function setMeta(key: string, value: unknown): Promise<void> {
-  return idbPut('meta', key, value)
+  return idbPut("meta", key, value);
 }
 
-export type PersistState = 'granted' | 'denied' | 'unsupported' | 'unknown'
+export type PersistState = "granted" | "denied" | "unsupported" | "unknown";
 
 /**
  * Ask the browser to protect this origin's storage from eviction under
@@ -215,12 +225,13 @@ export type PersistState = 'granted' | 'denied' | 'unsupported' | 'unknown'
  * draft store is evictable and cloud/account backup genuinely matters.
  */
 export async function requestPersistentStorage(): Promise<PersistState> {
-  if (typeof navigator === 'undefined' || !navigator.storage?.persist) return 'unsupported'
+  if (typeof navigator === "undefined" || !navigator.storage?.persist)
+    return "unsupported";
   try {
-    if (await navigator.storage.persisted()) return 'granted'
-    return (await navigator.storage.persist()) ? 'granted' : 'denied'
+    if (await navigator.storage.persisted()) return "granted";
+    return (await navigator.storage.persist()) ? "granted" : "denied";
   } catch {
-    return 'unknown'
+    return "unknown";
   }
 }
 
@@ -231,26 +242,26 @@ export async function requestPersistentStorage(): Promise<PersistState> {
  */
 export async function migrateLegacyLocalStorage(): Promise<Script | null> {
   try {
-    const done = await getMeta<boolean>('legacyMigrated')
-    if (done) return null
-    const raw = localStorage.getItem('writersdraft:script')
+    const done = await getMeta<boolean>("legacyMigrated");
+    if (done) return null;
+    const raw = localStorage.getItem("writersdraft:script");
     if (!raw) {
-      await setMeta('legacyMigrated', true)
-      return null
+      await setMeta("legacyMigrated", true);
+      return null;
     }
-    const script = JSON.parse(raw) as Script
-    if (!script || typeof script.id !== 'string') {
-      await setMeta('legacyMigrated', true)
-      return null
+    const script = JSON.parse(raw) as Script;
+    if (!script || typeof script.id !== "string") {
+      await setMeta("legacyMigrated", true);
+      return null;
     }
-    const existing = await getScript(script.id)
+    const existing = await getScript(script.id);
     // Never overwrite a newer IndexedDB copy with the legacy one.
     if (!existing || (existing.updatedAt ?? 0) <= (script.updatedAt ?? 0)) {
-      await putScript(script)
+      await putScript(script);
     }
-    await setMeta('legacyMigrated', true)
-    return script
+    await setMeta("legacyMigrated", true);
+    return script;
   } catch {
-    return null
+    return null;
   }
 }
