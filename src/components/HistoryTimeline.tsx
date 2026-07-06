@@ -30,9 +30,14 @@ export function HistoryTimeline() {
         </button>
       </div>
       {entries.length === 0 && (
-        <p className="mt-16 text-center text-ink-faint">
-          No snapshots yet — start writing.
-        </p>
+        <div className="mx-auto mt-16 max-w-sm text-center">
+          <p className="text-sm font-medium text-ink-soft">No versions yet</p>
+          <p className="mt-1 text-xs text-ink-faint">
+            Snapshots are captured automatically as you write. Each one is a
+            restorable version of the whole script, with word and page deltas —
+            so you can always find the draft where it was better.
+          </p>
+        </div>
       )}
       <ol className="relative flex flex-col gap-3 border-l border-line pl-5">
         {entries.map((e, i) => {

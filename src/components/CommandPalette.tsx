@@ -45,11 +45,9 @@ export function CommandPalette({ onPrint }: { onPrint: () => void }) {
     if (open) {
       setQuery("");
       setIndex(0);
-      // Release the editor immediately so keystrokes typed in the gap
-      // between the shortcut and the input mounting can't land in the
-      // script, then focus the input.
-      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-      setTimeout(() => inputRef.current?.focus(), 0);
+      // The editor is blurred synchronously by the Ctrl+K handler (App);
+      // the input autoFocuses during React's commit. Blurring here would
+      // fire AFTER autoFocus and steal focus from the input itself.
     }
   }, [open]);
 
@@ -155,6 +153,7 @@ export function CommandPalette({ onPrint }: { onPrint: () => void }) {
           <IconFilm size={14} className="shrink-0 text-brass" />
           <input
             ref={inputRef}
+            autoFocus
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);

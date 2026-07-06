@@ -25,8 +25,31 @@ export function BeatBoard() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
+  if (scenes.length === 0 || (scenes.length === 1 && scenes[0].heading === "(empty scene heading)")) {
+    return (
+      <div className="mx-auto flex h-full max-w-md flex-col items-center justify-center gap-3 p-6 text-center font-ui">
+        <div className="flex gap-2" aria-hidden>
+          {CARD_COLORS.slice(0, 4).map((c) => (
+            <span key={c} className="h-8 w-6 rounded-sm border border-line" style={{ background: c, opacity: 0.7 }} />
+          ))}
+        </div>
+        <h1 className="text-base font-semibold text-ink">Your scenes become index cards</h1>
+        <p className="text-sm text-ink-faint">
+          Every scene heading in the script gets a card here. Drag cards to reorder the actual
+          script, color-code storylines, and jot a synopsis per scene.
+        </p>
+        <button
+          onClick={() => setView("editor")}
+          className="rounded-md bg-brass px-3 py-1.5 text-xs font-medium text-on-brass hover:bg-brass-strong"
+        >
+          Write your first scene
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-6">
+    <div className="p-6 font-ui">
       <h1 className="text-lg font-semibold mb-1 text-ink">Beat Board</h1>
       <p className="text-sm text-ink-faint mb-4">
         Drag a card onto another to reorder scenes in the script. Click a color

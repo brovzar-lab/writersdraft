@@ -58,19 +58,29 @@ export function Library({ userId, onOpen, onNew, onDelete }: LibraryProps) {
 
       {local === null && <p className="text-sm text-ink-faint">Loading…</p>}
       {local !== null && local.length === 0 && cloudOnly.length === 0 && (
-        <p className="mt-12 text-center text-ink-faint">
-          No scripts yet — create one.
-        </p>
+        <div className="mt-12 rounded-xl border border-dashed border-line-strong p-8 text-center">
+          <p className="text-sm font-medium text-ink-soft">Your library is empty</p>
+          <p className="mx-auto mt-1 max-w-sm text-xs text-ink-faint">
+            Every script you write lives here — stored in this browser, and in your account's
+            cloud once you sign in. Start one and it appears automatically.
+          </p>
+          <button
+            onClick={onNew}
+            className="mt-4 rounded-md bg-brass px-3 py-1.5 text-xs font-medium text-on-brass hover:bg-brass-strong"
+          >
+            Start your first script
+          </button>
+        </div>
       )}
 
-      <ul className="flex flex-col gap-2">
+      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {(local ?? []).map((s) => (
           <li
             key={s.id}
-            className="group flex items-center gap-3 rounded border border-line bg-desk-raised p-3"
+            className="group flex items-center gap-3 rounded-lg border border-line bg-desk-raised p-3 transition-colors hover:border-line-strong"
           >
-            <button onClick={() => onOpen(s.id)} className="flex-1 text-left">
-              <span className="block font-medium text-ink">
+            <button onClick={() => onOpen(s.id)} className="min-w-0 flex-1 text-left">
+              <span className="block truncate font-medium text-ink">
                 {s.title}
                 {s.id === currentId && (
                   <span className="ml-2 rounded bg-brass-soft px-1.5 py-0.5 text-[10px] text-brass-strong">

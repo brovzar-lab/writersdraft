@@ -21,6 +21,7 @@ import { ELEMENT_LAYOUT } from "../engine/pagination";
 import { usePagination, type PaginationValue } from "./PaginationContext";
 import { ElementBlock } from "./ElementBlock";
 import { getBlockSelection } from "./caret";
+import { FirstRunCard } from "./FirstRunCard";
 import {
   deleteSelectedRange,
   rangeToClipboardText,
@@ -106,6 +107,7 @@ export function ScriptEditor() {
       onCutCapture={crossCut}
       onPasteCapture={crossPaste}
     >
+      <FirstRunCard />
       {pages.map((page) => (
         <EditorPage key={page.number} page={page} getElement={getElement} />
       ))}
