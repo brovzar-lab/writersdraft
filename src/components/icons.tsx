@@ -159,3 +159,31 @@ export const IconFilm = (p: P) => (
     <path d="M7 3v18M17 3v18M3 8h4M3 16h4M17 8h4M17 16h4" />
   </Base>
 );
+export const IconArrowRight = (p: P) => (
+  <Base {...p}>
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </Base>
+);
+export const IconSearch = (p: P) => (
+  <Base {...p}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="m21 21-4.3-4.3" />
+  </Base>
+);
+export const IconGrip = (p: P) => (
+  <Base {...p}>
+    <circle cx="9" cy="6" r="1" />
+    <circle cx="9" cy="12" r="1" />
+    <circle cx="9" cy="18" r="1" />
+    <circle cx="15" cy="6" r="1" />
+    <circle cx="15" cy="12" r="1" />
+    <circle cx="15" cy="18" r="1" />
+  </Base>
+);
+export const IconLayers = (p: P) => (
+  <Base {...p}>
+    <path d="m12 2 9 5-9 5-9-5 9-5Z" />
+    <path d="m3 12 9 5 9-5" />
+    <path d="m3 17 9 5 9-5" />
+  </Base>
+);

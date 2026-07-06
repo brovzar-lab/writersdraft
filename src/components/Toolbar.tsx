@@ -1,46 +1,26 @@
-/** Top chrome: view switcher, element type selector, undo/redo, production tools. */
+/**
+ * Studio Frame header — two dark rows.
+ *   Row 1 (#111827): logo · menu bar · sync pill · presence · Sprint.
+ *   Row 2 (#1f2937): element-type dropdown · ⌘K chip · centered view tabs ·
+ *   draft/revision chip · Notes toggle.
+ * The menus (File/Edit/…) carry the commands; this component is layout +
+ * the always-visible controls.
+ */
+import { useShallow } from "zustand/react/shallow";
 import { useScriptStore } from "../stores/scriptStore";
 import { useUiStore, type AppView } from "../stores/uiStore";
+import { useCollabStore } from "../stores/collabStore";
 import { ELEMENT_LABELS, ELEMENT_TYPES, type ElementType } from "../types";
-import { exportFountain, importFountain } from "../engine/fountain";
-import { exportFdx, importFdx } from "../engine/fdx";
 import { AccountMenu, type AccountUser } from "./AccountMenu";
-import { Button, Menu, MenuItem, toast } from "./ui";
-import {
-  IconUndo,
-  IconRedo,
-  IconLock,
-  IconUnlock,
-  IconDownload,
-  IconUpload,
-  IconPrinter,
-  IconNote,
-  IconMoon,
-  IconSun,
-  IconFocus,
-  IconZap,
-  IconChevronDown,
-  IconFilm,
-  IconMenu,
-  IconDots,
-} from "./icons";
+import { MenuBar } from "./MenuBar";
+import { IconZap, IconLock, IconMenu, IconSearch } from "./icons";
 
-function download(filename: string, text: string) {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-const VIEWS: Array<{ id: AppView; label: string }> = [
+const TABS: Array<{ id: AppView; label: string }> = [
   { id: "editor", label: "Script" },
-  { id: "bible", label: "Story Bible" },
-  { id: "beatboard", label: "Beat Board" },
+  { id: "bible", label: "Bible" },
+  { id: "beatboard", label: "Beats" },
   { id: "analytics", label: "Analytics" },
   { id: "history", label: "History" },
-  { id: "titlepage", label: "Title Page" },
-  { id: "library", label: "Library" },
 ];
 
 export function Toolbar({
@@ -48,32 +28,25 @@ export function Toolbar({
   user,
   onAuthChanged,
   onPrint,
+  onSave,
 }: {
   syncState: string;
   user: AccountUser | null;
   onAuthChanged: () => void;
   onPrint: () => void;
+  onSave: () => void;
 }) {
-  // Narrow selectors: the toolbar must not re-render on every keystroke.
+  const title = useScriptStore((s) => s.script.titlePage.title);
   const locked = useScriptStore((s) => s.script.locked);
   const revisionColor = useScriptStore((s) => s.script.revisionColor);
-  const undo = useScriptStore((s) => s.undo);
-  const redo = useScriptStore((s) => s.redo);
   const setElementType = useScriptStore((s) => s.setElementType);
-  const lockScript = useScriptStore((s) => s.lockScript);
-  const unlockScript = useScriptStore((s) => s.unlockScript);
-  const bumpRevision = useScriptStore((s) => s.bumpRevision);
-  const loadScript = useScriptStore((s) => s.loadScript);
   const checkpoint = useScriptStore((s) => s.checkpoint);
-  const canUndo = useScriptStore((s) => s.past.length > 0);
-  const canRedo = useScriptStore((s) => s.future.length > 0);
+
   const view = useUiStore((s) => s.view);
   const setView = useUiStore((s) => s.setView);
-  const toggleFocusMode = useUiStore((s) => s.toggleFocusMode);
-  const toggleDarkMode = useUiStore((s) => s.toggleDarkMode);
-  const darkMode = useUiStore((s) => s.darkMode);
-  const toggleNotes = useUiStore((s) => s.toggleNotes);
   const notesOpen = useUiStore((s) => s.notesOpen);
+  const toggleNotes = useUiStore((s) => s.toggleNotes);
+  const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
   const activeElementId = useUiStore((s) => s.activeElementId);
 
   const activeId = useScriptStore(
@@ -84,225 +57,167 @@ export function Toolbar({
   );
 
   return (
-    <header className="no-print flex items-center gap-2 border-b border-line bg-surface px-3 py-1.5 font-ui text-sm text-ink">
-      {view === "editor" && (
-        <Button
-          iconOnly
-          tip="Scenes"
-          className="lg:hidden"
-          onClick={() => useUiStore.getState().setDrawerOpen(true)}
-        >
-          <IconMenu />
-        </Button>
-      )}
-      <span className="mr-1 hidden items-center gap-1.5 select-none sm:flex">
-        <IconFilm size={16} className="text-ink-2" />
-        <span className="text-[13px] font-semibold tracking-tight text-ink">
-          WritersDraft
+    <header className="no-print flex-none font-ui">
+      {/* Row 1 — menu bar */}
+      <div className="flex items-center gap-0.5 bg-chrome px-3.5 py-1">
+        <span className="mr-3 flex select-none items-center gap-2">
+          <span className="grid h-[18px] w-[18px] place-items-center rounded bg-accent font-screenplay text-[11px] font-bold text-white">
+            W
+          </span>
+          <span className="text-[12.5px] font-semibold text-chrome-ink">
+            Writers<span className="text-accent-light">Draft</span>
+          </span>
         </span>
-      </span>
 
-      <nav
-        aria-label="Views"
-        className="flex max-w-[42vw] overflow-x-auto rounded-lg bg-sunken p-0.5 md:max-w-none"
-      >
-        {VIEWS.map((v) => (
-          <button
-            key={v.id}
-            onClick={() => setView(v.id)}
-            aria-current={view === v.id ? "page" : undefined}
-            className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors ${
-              view === v.id
-                ? "bg-surface text-ink shadow-sm"
-                : "text-ink-3 hover:text-ink"
-            }`}
-          >
-            {v.label}
-          </button>
-        ))}
-      </nav>
+        <MenuBar onSave={onSave} onPrint={onPrint} />
 
-      {view === "editor" && (
-        <select
-          className="hidden rounded-md border border-line bg-transparent px-1.5 py-1 text-xs text-ink-2 hover:border-line sm:block"
-          value={activeType ?? "action"}
-          aria-label="Element type"
-          onChange={(e) => {
-            if (activeId) {
-              checkpoint();
-              setElementType(activeId, e.target.value as ElementType);
-            }
-          }}
-          title="Element type (Tab/Enter also switch types)"
-        >
-          {ELEMENT_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {ELEMENT_LABELS[t]}
-            </option>
-          ))}
-        </select>
-      )}
-
-      <div className="flex gap-1">
-        <Button iconOnly tip="Undo (Ctrl+Z)" onClick={undo} disabled={!canUndo}>
-          <IconUndo />
-        </Button>
-        <Button
-          iconOnly
-          tip="Redo (Ctrl+Shift+Z)"
-          onClick={redo}
-          disabled={!canRedo}
-        >
-          <IconRedo />
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <AccountMenu
+            user={user}
+            onAuthChanged={onAuthChanged}
+            syncState={syncState}
+          />
+          <Presence />
+          <SprintButton />
+        </div>
       </div>
 
-      <div className="ml-auto flex items-center gap-1.5">
-        <span className="hidden px-1 text-[11px] text-ink-3 sm:inline">
-          {syncState}
-        </span>
-
-        {locked ? (
-          <>
-            <span
-              className="rounded-md border border-line px-1.5 py-1 text-[11px] capitalize text-ink-2"
-              title="Current revision color"
-            >
-              {revisionColor} rev.
-            </span>
-            <Button tip="Advance revision color" onClick={() => bumpRevision()}>
-              Next rev
-            </Button>
-            <Button
-              variant="toggle-on"
-              tip="Unlock script"
-              onClick={unlockScript}
-            >
-              <IconUnlock /> Unlock
-            </Button>
-          </>
-        ) : (
-          <Button
-            tip="Lock pages & number scenes for production"
-            onClick={() => {
-              lockScript();
-              // A production lock is a milestone — always snapshot it.
-              useScriptStore.getState().recordSnapshot("Locked for production");
-            }}
+      {/* Row 2 — context bar */}
+      <div className="relative flex items-center gap-3 bg-chrome-2 px-3.5 py-1.5">
+        {view === "editor" && (
+          <button
+            onClick={() => useUiStore.getState().setDrawerOpen(true)}
+            aria-label="Scenes"
+            className="rounded-[7px] p-1 text-chrome-ink-3 hover:bg-chrome-raised hover:text-chrome-ink lg:hidden"
           >
-            <IconLock /> Lock
-          </Button>
+            <IconMenu size={16} />
+          </button>
         )}
 
-        <Menu
-          trigger={() => (
-            <Button tip="Export the script">
-              <IconDownload /> Export <IconChevronDown size={12} />
-            </Button>
-          )}
-        >
-          <MenuItem
-            tip="Final Draft document (industry standard)"
-            onClick={() => {
-              const s = useScriptStore.getState().script;
-              download(`${s.titlePage.title || "script"}.fdx`, exportFdx(s));
-            }}
-          >
-            Final Draft (.fdx)
-          </MenuItem>
-          <MenuItem
-            tip="Plain-text screenplay format"
-            onClick={() => {
-              const s = useScriptStore.getState().script;
-              download(
-                `${s.titlePage.title || "script"}.fountain`,
-                exportFountain(s),
-              );
-            }}
-          >
-            Fountain (.fountain)
-          </MenuItem>
-        </Menu>
-
-        <label
-          className="tip hidden cursor-pointer select-none items-center gap-1.5 rounded-md border border-line px-2 py-1 text-xs font-medium text-ink-2 transition-colors hover:border-line hover:bg-sunken/60 hover:text-ink md:inline-flex"
-          data-tip="Import a .fdx or .fountain file"
-        >
-          <IconUpload /> Import
-          <input
-            type="file"
-            accept=".fdx,.fountain,.txt"
-            className="hidden"
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (f) {
-                try {
-                  const text = await f.text();
-                  const imported = f.name.toLowerCase().endsWith(".fdx")
-                    ? importFdx(text)
-                    : importFountain(text);
-                  loadScript(imported);
-                  useScriptStore.getState().loadTimeline([]);
-                  // Imports must persist even before the first edit.
-                  useScriptStore.getState().markDirty();
-                  toast(`Imported ${f.name}`, "success");
-                } catch (err) {
-                  toast(
-                    `Could not import ${f.name}: ${err instanceof Error ? err.message : err}`,
-                    "error",
-                  );
+        {view === "editor" && (
+          <label className="relative flex items-center rounded-[7px] border border-chrome-line">
+            <select
+              className="cursor-pointer appearance-none rounded-[7px] bg-transparent py-1 pl-2.5 pr-7 text-xs text-chrome-ink outline-none"
+              value={activeType ?? "action"}
+              aria-label="Element type"
+              onChange={(e) => {
+                if (activeId) {
+                  checkpoint();
+                  setElementType(activeId, e.target.value as ElementType);
                 }
-              }
-              e.target.value = "";
-            }}
-          />
-        </label>
+              }}
+              title="Element type (Tab/Enter also switch types)"
+            >
+              {ELEMENT_TYPES.map((t) => (
+                <option key={t} value={t} className="text-ink">
+                  {ELEMENT_LABELS[t]}
+                </option>
+              ))}
+            </select>
+            <span className="pointer-events-none absolute right-2 text-[9px] text-chrome-ink-4">
+              ▼
+            </span>
+          </label>
+        )}
 
-        <Button iconOnly tip="Print / Save as PDF (Ctrl+P)" onClick={onPrint}>
-          <IconPrinter />
-        </Button>
-        <Button
-          iconOnly
-          variant={notesOpen ? "toggle-on" : "ghost"}
-          tip="Notes & tags"
-          className="hidden md:inline-flex"
-          onClick={toggleNotes}
+        <button
+          onClick={() => {
+            if (document.activeElement instanceof HTMLElement)
+              document.activeElement.blur();
+            setPaletteOpen(true);
+          }}
+          className="flex items-center gap-2 rounded-[7px] border border-chrome-line px-2.5 py-1 text-[11.5px] text-chrome-ink-3 hover:text-chrome-ink"
+          aria-label="Open command palette"
         >
-          <IconNote />
-        </Button>
-        <Button
-          iconOnly
-          tip="Toggle dark mode"
-          className="hidden md:inline-flex"
-          onClick={toggleDarkMode}
+          <IconSearch size={13} />
+          <span className="font-mono">⌘K</span>
+        </button>
+
+        <nav
+          aria-label="Views"
+          className="absolute left-1/2 flex -translate-x-1/2 gap-px rounded-[7px] bg-chrome p-0.5"
         >
-          {darkMode ? <IconSun /> : <IconMoon />}
-        </Button>
-        <Button
-          iconOnly
-          tip="Focus mode (Esc to exit)"
-          className="hidden md:inline-flex"
-          onClick={toggleFocusMode}
-        >
-          <IconFocus />
-        </Button>
-        <SprintButton />
-        <Menu
-          trigger={() => (
-            <Button iconOnly tip="More" className="md:hidden">
-              <IconDots />
-            </Button>
-          )}
-        >
-          <MenuItem onClick={toggleNotes}>Notes & tags</MenuItem>
-          <MenuItem onClick={toggleDarkMode}>
-            {darkMode ? "Light mode" : "Dark mode"}
-          </MenuItem>
-          <MenuItem onClick={toggleFocusMode}>Focus mode</MenuItem>
-        </Menu>
-        <AccountMenu user={user} onAuthChanged={onAuthChanged} />
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setView(t.id)}
+              aria-current={view === t.id ? "page" : undefined}
+              className={`rounded-md px-3 py-[3px] text-xs transition-colors ${
+                view === t.id
+                  ? "bg-chrome-raised font-medium text-white"
+                  : "text-chrome-ink-3 hover:text-chrome-ink"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="ml-auto flex items-center gap-2">
+          <span className="flex items-center gap-1.5 whitespace-nowrap rounded border border-chrome-line px-2 py-[3px] text-[11px] text-chrome-ink-3">
+            <span className="max-w-[16ch] truncate text-chrome-ink-2">
+              {title || "Untitled"}
+            </span>
+            {locked ? (
+              <>
+                <span className="text-chrome-ink-4">·</span>
+                <IconLock size={11} className="text-accent-light" />
+                <span className="capitalize">{revisionColor} rev.</span>
+              </>
+            ) : (
+              <>
+                <span className="text-chrome-ink-4">·</span>
+                <span>Draft</span>
+              </>
+            )}
+          </span>
+          <button
+            onClick={toggleNotes}
+            aria-pressed={notesOpen}
+            className={`rounded-[7px] border px-2.5 py-1 text-xs transition-colors ${
+              notesOpen
+                ? "border-accent-light/60 bg-chrome-raised text-white"
+                : "border-chrome-line text-chrome-ink-2 hover:text-chrome-ink"
+            }`}
+          >
+            Notes
+          </button>
+        </div>
       </div>
     </header>
+  );
+}
+
+function Presence() {
+  // Shallow-compare: filtering inside the selector makes a new array each
+  // render, which would loop useSyncExternalStore without this.
+  const peers = useCollabStore(
+    useShallow((s) => s.peers.filter((p) => p.userId !== s.selfId)),
+  );
+  if (peers.length === 0) return null;
+  const initials = (name: string) =>
+    name
+      .split(/\s+/)
+      .map((w) => w[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+  return (
+    <span className="flex items-center gap-1.5 text-[11px] text-chrome-ink-3">
+      {peers.slice(0, 3).map((p) => (
+        <span
+          key={p.userId}
+          className="rounded px-1.5 py-px text-[10px] font-semibold"
+          style={{ background: "#93c5fd", color: "#1e3a8a" }}
+          title={`${p.name} is here`}
+        >
+          {initials(p.name)}
+        </span>
+      ))}
+      <span>
+        {peers.length} {peers.length === 1 ? "writer" : "writers"} here
+      </span>
+    </span>
   );
 }
 
@@ -311,9 +226,7 @@ function SprintButton() {
   const startSprint = useUiStore((s) => s.startSprint);
   if (sprint) return null;
   return (
-    <Button
-      className="hidden md:inline-flex"
-      tip="15-minute writing sprint, 300-word goal. Enters focus mode."
+    <button
       onClick={() => {
         const words = useScriptStore
           .getState()
@@ -324,8 +237,10 @@ function SprintButton() {
           );
         startSprint(15, 300, words);
       }}
+      title="15-minute writing sprint, 300-word goal. Enters focus mode."
+      className="flex flex-none items-center gap-1.5 whitespace-nowrap rounded-md bg-accent px-2.5 py-1 text-[11.5px] font-semibold text-white hover:bg-accent-press"
     >
-      <IconZap className="text-ink-2" /> Sprint
-    </Button>
+      <IconZap size={13} /> Sprint
+    </button>
   );
 }

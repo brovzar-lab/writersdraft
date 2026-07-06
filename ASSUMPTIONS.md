@@ -3,6 +3,42 @@
 Decisions made where the audit report left the choice open. Each picked the
 safer option for the writer's draft.
 
+## Studio Frame redesign — judgment calls
+
+- **Dark *body* theme parked.** Studio Frame is a fixed two-tone system (dark
+  chrome + light body), so the automatic `prefers-color-scheme` dark mode and
+  the `.dark` token twin were removed for this pass; the View→Dark menu item
+  is a placeholder that toasts "coming later". Re-add a purpose-built dark
+  body theme when wanted — don't just re-enable the old navy twin.
+- **Three "derived" chrome features reuse existing data, no schema change:**
+  runtime = page count (~1 min/page); **Today +words** = current words minus
+  the last version-timeline snapshot before local midnight (earliest snapshot
+  if writing started today; 0 with no snapshots — can go negative on a cut
+  day); **revision asterisks / changed-pages** = diff of current elements vs.
+  the most recent "Locked for production" timeline snapshot, matched by id;
+  **acts** = classic three-act page proportions (25/50/25), not stored data.
+- **Revision strip color** is drawn in accent-light (blue) regardless of the
+  revision color, so a "white" revision strip stays visible; the strip means
+  "locked production draft in revision", the swatch cycle carries the color.
+- **Guest banner → sync-pill popover.** The brief removed the standalone guest
+  banner; its honest "this draft lives only in this browser / create account"
+  wording moved verbatim into the Row-1 sync-pill popover. The promise didn't
+  change, only its location.
+- **Flow view is not virtualized** (Pages view still is). Flow renders every
+  element continuously; on a feature-length script that is heavier than Pages.
+  Acceptable for a deliberate reading/writing mode; revisit if it drags.
+- **New menu features are real, minimal implementations**, not stubs:
+  `renameCharacter` (rewrites matching cues, one history entry, extensions
+  preserved), `checkFormatting` (empty headings / cues w/o dialogue / orphan
+  dialogue), "Find…" opens the ⌘K palette (the search surface). "Scene
+  numbers" toggles a `showSceneNumbers` display flag (numbers still originate
+  from locking).
+- **Storyline vs. tags**: the scene's beat-board color is the "storyline"
+  (the navigator dot + filter); the inspector's "Storyline & tags" pills are
+  the script's tags toggled per element. No separate storyline-name model.
+- **Inspector defaults open** (`notesOpen: true`) so the shell reads as the
+  three-column mock on first load.
+
 ## Instrument re-skin — judgment calls
 
 - **Courier Prime stays on the screenplay page, title page, and print.**

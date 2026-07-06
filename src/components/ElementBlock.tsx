@@ -35,7 +35,10 @@ import {
 } from "./caret";
 import { pastePlainText } from "./clipboard";
 import { parseFountainBody } from "../engine/fountain";
+import { characterStats } from "../engine/analysis";
+import { canonicalCharacterName } from "../engine/stateMachine";
 import { Menu, MenuItem } from "./ui";
+import { IconPlus } from "./icons";
 import { ELEMENT_LABELS, ELEMENT_TYPES } from "../types";
 
 const PLACEHOLDERS: Partial<Record<ScriptElement["type"], string>> = {
@@ -46,6 +49,13 @@ const PLACEHOLDERS: Partial<Record<ScriptElement["type"], string>> = {
   transition: "CUT TO:",
   action: "Action…",
 };
+
+const AVATAR_COLORS = ["#4ade80", "#60a5fa", "#fbbf24", "#f472b6", "#22d3ee"];
+function avatarColor(name: string): string {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
 
 export const ElementBlock = memo(function ElementBlock({
   element,
@@ -68,6 +78,12 @@ export const ElementBlock = memo(function ElementBlock({
   const caretTarget = useUiStore((s) =>
     s.pendingCaret?.elementId === element.id ? s.pendingCaret : null,
   );
+  // Narrow booleans: an element with an open note gets a highlight; scene
+  // numbers can be hidden from the View/Production menu.
+  const hasOpenNote = useScriptStore((s) =>
+    s.script.notes.some((n) => n.elementId === element.id && !n.resolved),
+  );
+  const showSceneNumbers = useUiStore((s) => s.showSceneNumbers);
 
   // ---- SmartType: completions for cues, headings and transitions.
   // Computed only for the active block; buildContext walks the script at
@@ -82,6 +98,24 @@ export const ElementBlock = memo(function ElementBlock({
       buildContext(useScriptStore.getState().script.elements),
     );
   }, [active, sugDismissed, element.type, element.text, element.locked]);
+
+  // Character cues get a richer popover: per-name speech counts (from the
+  // analysis engine) + a "New character" escape row. Computed only while a
+  // cue is the active block.
+  const speechOf = useMemo(() => {
+    if (!active || element.type !== "character") return null;
+    const m = new Map<string, number>();
+    for (const c of characterStats(useScriptStore.getState().script.elements))
+      m.set(c.name, c.speeches);
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, element.type]);
+  const showNewChar =
+    active &&
+    element.type === "character" &&
+    element.text.trim().length > 0 &&
+    suggestions.length > 0;
+  const optionCount = suggestions.length + (showNewChar ? 1 : 0);
 
   useEffect(() => {
     // New element focus or type change: popup state resets.
@@ -130,17 +164,19 @@ export const ElementBlock = memo(function ElementBlock({
     if (suggestions.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setSugIndex((i) => (i + 1) % suggestions.length);
+        setSugIndex((i) => (i + 1) % optionCount);
         return;
       }
       if (e.key === "ArrowUp") {
         e.preventDefault();
-        setSugIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
+        setSugIndex((i) => (i - 1 + optionCount) % optionCount);
         return;
       }
       if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
-        acceptSuggestion(sugIndex);
+        // The trailing "New character" row commits the typed text as-is.
+        if (sugIndex >= suggestions.length) setSugDismissed(true);
+        else acceptSuggestion(sugIndex);
         return;
       }
       if (e.key === "Escape") {
@@ -298,14 +334,15 @@ export const ElementBlock = memo(function ElementBlock({
         >
           <Menu
             align="left"
-            width="w-36"
+            width="w-40"
             trigger={() => (
               <button
                 data-testid="type-pill"
-                className="whitespace-nowrap rounded-full border border-line bg-surface px-2 py-px font-ui text-[10px] font-medium text-ink-3 shadow-sm transition-colors hover:border-accent hover:text-accent"
-                title="Change element type"
+                aria-label="Insert or change element type"
+                className="grid h-5 w-5 place-items-center rounded-full border border-line bg-surface font-ui text-ink-3 shadow-sm transition-colors hover:border-accent hover:text-accent"
+                title="Insert / change element type"
               >
-                {ELEMENT_LABELS[element.type]}
+                <IconPlus size={12} />
               </button>
             )}
           >
@@ -345,7 +382,7 @@ export const ElementBlock = memo(function ElementBlock({
         contentEditable={!element.locked}
         suppressContentEditableWarning
         spellCheck={element.type === "action" || element.type === "dialogue"}
-        className={`element-block font-screenplay transition-colors duration-150 ${active ? "bg-accent-soft/50" : ""}`}
+        className={`element-block font-screenplay caret-accent transition-colors duration-150 ${active ? "bg-accent-soft" : ""}`}
         style={{
           marginLeft: layout.rightAlign ? undefined : `${layout.indent}ch`,
           maxWidth: `${layout.width}ch`,
@@ -354,6 +391,9 @@ export const ElementBlock = memo(function ElementBlock({
             ? "uppercase"
             : undefined,
           marginRight: layout.rightAlign ? 0 : undefined,
+          // An element carrying an open note gets a soft yellow wash (unless
+          // it's the active block, whose accent wash wins).
+          background: !active && hasOpenNote ? "#fef9c3" : undefined,
         }}
         data-element-id={element.id}
         data-element-type={element.type}
@@ -364,7 +404,79 @@ export const ElementBlock = memo(function ElementBlock({
         onFocus={() => setActiveElement(element.id)}
         onBlur={handleBlur}
       />
-      {suggestions.length > 0 && (
+      {suggestions.length > 0 && element.type === "character" && (
+        <ul
+          data-testid="smarttype-popup"
+          role="listbox"
+          aria-label="Character suggestions"
+          className="absolute z-20 mt-1 w-52 overflow-hidden rounded-lg border border-line bg-surface font-ui shadow-[0_8px_24px_rgba(17,24,39,.18)]"
+          style={{ left: `${layout.indent}ch` }}
+        >
+          {suggestions.map((s, i) => {
+            const typed = s.text.slice(0, s.text.length - s.completion.length);
+            const speeches =
+              speechOf?.get(canonicalCharacterName(s.text)) ?? 0;
+            const sel = i === sugIndex;
+            return (
+              <li key={s.text}>
+                <button
+                  role="option"
+                  aria-selected={sel}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    acceptSuggestion(i);
+                  }}
+                  onMouseEnter={() => setSugIndex(i)}
+                  className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs ${
+                    sel ? "bg-accent-soft text-ink" : "text-ink-2"
+                  }`}
+                >
+                  <span
+                    className="grid h-4 w-4 shrink-0 place-items-center rounded-full text-[8px] font-bold text-white"
+                    style={{ background: avatarColor(s.text) }}
+                  >
+                    {s.text[0]}
+                  </span>
+                  <span className="font-screenplay uppercase">
+                    <b>{typed}</b>
+                    <span className="text-ink-3">{s.completion}</span>
+                  </span>
+                  <span className="ml-auto text-[9.5px] text-ink-4">
+                    {speeches} {speeches === 1 ? "speech" : "speeches"}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+          {showNewChar && (
+            <li>
+              <button
+                role="option"
+                aria-selected={sugIndex === suggestions.length}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setSugDismissed(true);
+                }}
+                onMouseEnter={() => setSugIndex(suggestions.length)}
+                className={`flex w-full items-center gap-2 border-t border-hairline px-2.5 py-1.5 text-left text-[11.5px] ${
+                  sugIndex === suggestions.length
+                    ? "bg-accent-soft text-ink"
+                    : "text-ink-3"
+                }`}
+              >
+                <IconPlus size={12} />
+                <span className="truncate">
+                  New character “{element.text.trim()}”
+                </span>
+                <span className="ml-auto rounded border border-line px-1 font-screenplay text-[9px] text-ink-4">
+                  ⏎
+                </span>
+              </button>
+            </li>
+          )}
+        </ul>
+      )}
+      {suggestions.length > 0 && element.type !== "character" && (
         <ul
           data-testid="smarttype-popup"
           role="listbox"
@@ -402,11 +514,13 @@ export const ElementBlock = memo(function ElementBlock({
           </li>
         </ul>
       )}
-      {element.sceneNumber && element.type === "scene_heading" && (
-        <span className="absolute -left-10 top-0 font-screenplay text-ink-3 select-none">
-          {element.sceneNumber}
-        </span>
-      )}
+      {showSceneNumbers &&
+        element.sceneNumber &&
+        element.type === "scene_heading" && (
+          <span className="absolute -left-10 top-0 font-screenplay text-ink-3 select-none">
+            {element.sceneNumber}
+          </span>
+        )}
     </div>
   );
 });

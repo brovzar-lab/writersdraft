@@ -1,6 +1,53 @@
 # STATUS
 
-## Instrument design system re-skin (latest — PENDING USER REVIEW)
+## Studio Frame redesign (latest — REVIEW IN BROWSER BEFORE MERGE)
+
+Implemented the "Studio Frame" editor-shell redesign from
+`design_handoff_studio_frame/` (4 HTML mocks + README). A fixed two-tone
+system — **dark chrome framing a light script body** — that supersedes the
+Instrument re-skin for the editor shell. Committed to the working branch as a
+reviewable checkpoint; the handoff asks for an in-browser review
+(`npm run dev`) before merge. Script-page dimensions, Courier Prime and the
+paginator are untouched, per the brief.
+
+- **Chrome**: two dark rows + dark status bar (`#111827` / `#1f2937` /
+  `#374151`), IBM Plex Sans (Courier Prime stays on the page/title/print).
+  Row 1 = logo · menu bar · sync pill · presence · Sprint. Row 2 = element
+  dropdown · ⌘K chip · centered view tabs · draft/revision chip · Notes.
+- **`MenuBar.tsx` (new)**: File/Edit/View/Production/Tools/Help dropdowns
+  mapping onto existing features, with keyboard nav, Export/Revision-color
+  submenus, and a shortcuts/about modal.
+- **SceneNavigator**: storyline-dot + character filters, act headers (derived
+  3-act by page proportion), drag-reorder (`moveScene`), act-progress footer.
+- **`InspectorPanel.tsx` (new — absorbs NotesPanel)**: for the active scene —
+  synopsis (`setSceneMeta`), storyline/tags, open notes, in-scene characters +
+  speech counts, revision swatch cycle.
+- **StatusBar** (dark): page/words/scenes/runtime (~1 min per page) ·
+  today-delta · sprint · element-flow hints · save state · honest storage
+  indicator (kept from workstream G).
+- **CommandPalette**: JUMP TO / COMMANDS groups, Courier scene numbers,
+  element-change / export / lock / sprint commands; no-keystroke-leak intact.
+- **ElementBlock**: character autocomplete popover (avatar + speech counts +
+  "New character" row), gutter "+" type control, open-note highlight, blue
+  caret, right-margin revision asterisk (`changedSinceLock`).
+- **ScriptEditor**: Pages⇄Flow toggle (Flow = continuous, un-virtualized),
+  locked revision strip + asterisks, typewriter Focus mode (warm paper,
+  distance dimming, centered current line, sprint HUD).
+- **Derived read-models** (`src/engine/analysis.ts`, pure + unit-tested):
+  `charactersInScene`, `wordsToday`, `changedSinceLock`, `checkFormatting`.
+  New store action `renameCharacter`. New uiStore state: `viewMode`, nav
+  filters, `showSceneNumbers`. **Dark body theme is parked** (fixed two-tone).
+- **Guest banner removed**; its honest "device-only draft / create account"
+  wording moved into the Row-1 sync-pill popover (`AccountMenu`).
+- **Verified**: 179 unit tests (171 + 8 new derived-model tests), `tsc`,
+  production build, and a live Chromium pass screenshotting the shell, File
+  menu, ⌘K palette, Flow, locked/revision and Focus — zero React/runtime
+  errors (only the expected emulator connection refusals). One real bug caught
+  in-browser and fixed: a filter-in-selector in the presence chip looped
+  `useSyncExternalStore` (now `useShallow`).
+- Judgment calls logged in ASSUMPTIONS.md.
+
+## Instrument design system re-skin (previous — superseded by Studio Frame for the editor shell)
 
 Applied the user-provided Instrument design brief (styling only; no data,
 logic, or feature changes). This replaces the warm "writer's-desk" look

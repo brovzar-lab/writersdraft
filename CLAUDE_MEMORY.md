@@ -11,6 +11,27 @@ Never pass a reassignable array into a helper — pass push/flush closures inste
 ## Firebase emulators in this container need explicit 127.0.0.1 host
 The sandbox has no IPv6; without `"host": "127.0.0.1"` in firebase.json the emulators warn on `::1` port probes. Java 21 is preinstalled; `firebase emulators:exec --project demo-*` works headless and downloads the Firestore JAR on first run.
 
+## Zustand selectors must not build a fresh array/object each render
+A selector like `useStore(s => s.peers.filter(...))` returns a NEW array every
+call, so `useSyncExternalStore` thinks the snapshot changed and re-renders
+forever ("getSnapshot should be cached" → "Maximum update depth exceeded").
+Wrap derived arrays/objects in `useShallow` (`zustand/react/shallow`), or
+select raw refs + primitives and derive in the render body. Booleans via
+`.some()` are fine. Caught only in the browser — tsc and unit tests miss it,
+so a live smoke pass is mandatory after chrome changes.
+
+## Design system: "Studio Frame" is the editor shell (dark chrome + light body)
+The editor shell was redesigned from Instrument (all-light cobalt) to Studio
+Frame: a FIXED two-tone system — dark chrome (`--chrome`/`--chrome-2`/
+`--chrome-raised` = #111827/#1f2937/#374151, `--chrome-ink*` text) framing a
+light body (`--bg` canvas #eef0f2, `--panel` #f8f9fa, white page, `--accent`
+#3b82f6). NOT a light/dark theme flip — chrome is always dark, body always
+light; the dark *body* twin was removed and the View→Dark toggle is parked.
+UI font is IBM Plex Sans; Courier Prime still only on page/title/print. Chrome
+utilities: `bg-chrome*`, `text-chrome-ink*`, `bg-panel`, `border-hairline`,
+`text-accent-deep/-light/-pale`. Small decorative accents (storyline dots,
+revision swatches, note-card #fefce8/#fde68a) use exact spec hex inline.
+
 ## contentEditable + React: keep it uncontrolled
 Don't render the text as JSX children. Sync `div.textContent` in an effect only when it differs from store text (self-edits already match, which preserves the caret), and hand off caret positions between blocks via `uiStore.pendingCaret`.
 

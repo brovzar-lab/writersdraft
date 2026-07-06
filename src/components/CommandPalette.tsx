@@ -1,18 +1,38 @@
 /**
- * Ctrl+K command palette: jump to any scene, switch views, run commands —
- * the keyboard-first writer never has to find a button.
+ * ⌘K command palette: jump to any scene, switch views, run commands — the
+ * keyboard-first writer never has to find a button. Two groups (JUMP TO /
+ * COMMANDS); scene numbers render in Courier; the selected row shows its
+ * action hint. The editor is blurred synchronously by the ⌘K handler (App)
+ * so no keystroke leaks into the script before the input mounts.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useScriptStore } from "../stores/scriptStore";
 import { useUiStore, type AppView } from "../stores/uiStore";
+import { usePagination } from "./PaginationContext";
 import { exportFdx } from "../engine/fdx";
 import { exportFountain } from "../engine/fountain";
-import { IconFilm } from "./icons";
+import { ELEMENT_LABELS, ELEMENT_TYPES, type ElementType } from "../types";
+import {
+  IconSearch,
+  IconFilm,
+  IconArrowRight,
+  IconDownload,
+  IconZap,
+  IconLock,
+  IconUnlock,
+  IconLayers,
+  IconFocus,
+} from "./icons";
 
-interface Command {
+interface Cmd {
   id: string;
+  group: "jump" | "command";
   label: string;
-  hint?: string;
+  keywords?: string;
+  sceneNumber?: string;
+  page?: number;
+  icon?: ReactNode;
+  shortcut?: string;
   run: () => void;
 }
 
@@ -40,94 +60,98 @@ export function CommandPalette({ onPrint }: { onPrint: () => void }) {
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { pageOf } = usePagination();
 
   useEffect(() => {
     if (open) {
       setQuery("");
       setIndex(0);
-      // The editor is blurred synchronously by the Ctrl+K handler (App);
-      // the input autoFocuses during React's commit. Blurring here would
-      // fire AFTER autoFocus and steal focus from the input itself.
     }
   }, [open]);
 
-  const commands = useMemo<Command[]>(() => {
+  const commands = useMemo<Cmd[]>(() => {
     if (!open) return [];
     const ui = useUiStore.getState();
     const store = useScriptStore.getState();
-    const out: Command[] = [];
+    const out: Cmd[] = [];
 
-    for (const sc of store.scenes()) {
+    store.scenes().forEach((sc, i) => {
       const el = store.script.elements[sc.index];
       out.push({
         id: `scene-${sc.id}`,
+        group: "jump",
         label: sc.heading,
-        hint: "scene",
+        keywords: sc.sceneNumber ?? String(i + 1),
+        sceneNumber: sc.sceneNumber ?? String(i + 1),
+        page: pageOf.get(sc.id) ?? 1,
         run: () => {
           ui.setView("editor");
           ui.requestCaret(sc.id, el ? el.text.length : 0, true);
         },
       });
-    }
-    for (const v of VIEW_LABELS) {
+    });
+
+    for (const v of VIEW_LABELS)
       out.push({
         id: `view-${v.id}`,
+        group: "command",
         label: v.label,
-        hint: "view",
+        icon: <IconFilm size={14} />,
         run: () => ui.setView(v.id),
       });
-    }
+
+    // Change the active element's type.
+    const activeId = ui.activeElementId;
+    const activeType = store.script.elements.find(
+      (e) => e.id === activeId,
+    )?.type;
+    if (activeId)
+      for (const t of ELEMENT_TYPES) {
+        if (t === activeType) continue;
+        out.push({
+          id: `type-${t}`,
+          group: "command",
+          label: `Change element to ${ELEMENT_LABELS[t]}`,
+          icon: <IconArrowRight size={14} />,
+          run: () => {
+            store.checkpoint();
+            store.setElementType(activeId, t as ElementType);
+            ui.requestCaret(activeId, 0);
+          },
+        });
+      }
+
+    const title = () => useScriptStore.getState().script.titlePage.title || "script";
     out.push(
       {
-        id: "cmd-dark",
-        label: "Toggle dark mode",
-        hint: "command",
-        run: () => ui.toggleDarkMode(),
-      },
-      {
-        id: "cmd-focus",
-        label: "Focus mode",
-        hint: "command",
-        run: () => ui.toggleFocusMode(),
-      },
-      {
         id: "cmd-print",
-        label: "Print / Save as PDF",
-        hint: "command",
+        group: "command",
+        label: "Export / print PDF",
+        icon: <IconDownload size={14} />,
+        shortcut: "⌘P",
         run: onPrint,
       },
       {
-        id: "cmd-fdx",
-        label: "Export Final Draft (.fdx)",
-        hint: "command",
-        run: () => {
-          const s = useScriptStore.getState().script;
-          download(`${s.titlePage.title || "script"}.fdx`, exportFdx(s));
-        },
-      },
-      {
         id: "cmd-fountain",
+        group: "command",
         label: "Export Fountain (.fountain)",
-        hint: "command",
-        run: () => {
-          const s = useScriptStore.getState().script;
-          download(
-            `${s.titlePage.title || "script"}.fountain`,
-            exportFountain(s),
-          );
-        },
+        icon: <IconDownload size={14} />,
+        run: () =>
+          download(`${title()}.fountain`, exportFountain(store.script)),
       },
       {
-        id: "cmd-snapshot",
-        label: "Snapshot this version",
-        hint: "command",
-        run: () =>
-          void useScriptStore.getState().recordSnapshot("Manual snapshot"),
+        id: "cmd-fdx",
+        group: "command",
+        label: "Export Final Draft (.fdx)",
+        icon: <IconDownload size={14} />,
+        run: () => download(`${title()}.fdx`, exportFdx(store.script)),
       },
       {
         id: "cmd-sprint",
+        group: "command",
         label: "Start a 15-minute sprint",
-        hint: "command",
+        keywords: "goal 300 words",
+        icon: <IconZap size={14} />,
         run: () => {
           const words = useScriptStore
             .getState()
@@ -139,45 +163,136 @@ export function CommandPalette({ onPrint }: { onPrint: () => void }) {
           ui.startSprint(15, 300, words);
         },
       },
+      store.script.locked
+        ? {
+            id: "cmd-unlock",
+            group: "command",
+            label: "Unlock pages",
+            icon: <IconUnlock size={14} />,
+            run: () => useScriptStore.getState().unlockScript(),
+          }
+        : {
+            id: "cmd-lock",
+            group: "command",
+            label: "Lock pages for production",
+            icon: <IconLock size={14} />,
+            run: () => {
+              useScriptStore.getState().lockScript();
+              useScriptStore.getState().recordSnapshot("Locked for production");
+            },
+          },
+      {
+        id: "cmd-snapshot",
+        group: "command",
+        label: "Snapshot this version",
+        icon: <IconLayers size={14} />,
+        run: () => void useScriptStore.getState().recordSnapshot("Manual snapshot"),
+      },
+      {
+        id: "cmd-focus",
+        group: "command",
+        label: "Focus mode",
+        icon: <IconFocus size={14} />,
+        shortcut: "⌘⇧F",
+        run: () => ui.toggleFocusMode(),
+      },
     );
     return out;
-  }, [open, onPrint]);
+  }, [open, onPrint, pageOf]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return commands.slice(0, 12);
-    const starts = commands.filter((c) => c.label.toLowerCase().startsWith(q));
-    const contains = commands.filter(
-      (c) =>
-        !c.label.toLowerCase().startsWith(q) &&
-        c.label.toLowerCase().includes(q),
-    );
-    return [...starts, ...contains].slice(0, 12);
+    const match = (c: Cmd) =>
+      c.label.toLowerCase().includes(q) ||
+      (c.keywords?.toLowerCase().includes(q) ?? false);
+    const list = q ? commands.filter(match) : commands;
+    // Stable order: jumps first, then commands; cap the list.
+    return list.slice(0, 40);
   }, [commands, query]);
 
   if (!open) return null;
 
-  const run = (c: Command | undefined) => {
+  const run = (c: Cmd | undefined) => {
     if (!c) return;
     setOpen(false);
     c.run();
   };
 
+  let rowIndex = -1;
+  const jumps = filtered.filter((c) => c.group === "jump");
+  const cmds = filtered.filter((c) => c.group === "command");
+
+  const renderRow = (c: Cmd) => {
+    rowIndex++;
+    const i = rowIndex;
+    const selected = i === index;
+    return (
+      <li key={c.id}>
+        <button
+          role="option"
+          aria-selected={selected}
+          onMouseEnter={() => setIndex(i)}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            run(c);
+          }}
+          className={`flex w-full items-center gap-2.5 px-4 py-2 text-left ${
+            selected ? "bg-accent-soft" : ""
+          }`}
+        >
+          {c.group === "jump" ? (
+            <span
+              className={`font-screenplay text-[11px] font-bold ${
+                selected ? "text-accent-deep" : "text-ink-4"
+              }`}
+            >
+              {c.sceneNumber}
+            </span>
+          ) : (
+            <span className="text-ink-3">{c.icon}</span>
+          )}
+          <span
+            className={`flex-1 truncate text-[13px] ${
+              c.group === "jump" && !selected ? "text-ink-2" : "text-ink"
+            } ${c.group === "jump" ? "uppercase" : ""}`}
+          >
+            {c.label}
+          </span>
+          {c.group === "jump" ? (
+            <span className="ml-auto shrink-0 text-[10.5px] text-ink-4">
+              p{c.page}
+              {selected && (
+                <>
+                  {" "}
+                  · <b className="text-accent">Jump ⏎</b>
+                </>
+              )}
+            </span>
+          ) : (
+            c.shortcut && (
+              <span className="ml-auto rounded border border-line px-1.5 font-mono text-[10px] text-ink-4">
+                {c.shortcut}
+              </span>
+            )
+          )}
+        </button>
+      </li>
+    );
+  };
+
   return (
     <div
-      className="no-print fixed inset-0 z-40 flex items-start justify-center bg-ink/20 pt-[15vh] font-ui"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) setOpen(false);
-      }}
+      className="no-print fixed inset-0 z-40 flex items-start justify-center bg-ink/32 pt-24 font-ui"
+      onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}
       role="dialog"
       aria-label="Command palette"
     >
       <div
         data-testid="command-palette"
-        className="w-[34rem] max-w-[90vw] overflow-hidden rounded-xl border border-line bg-surface shadow-2xl"
+        className="w-[560px] max-w-[92vw] overflow-hidden rounded-xl bg-surface shadow-[0_24px_64px_rgba(17,24,39,.35)]"
       >
-        <div className="flex items-center gap-2 border-b border-line px-3">
-          <IconFilm size={14} className="shrink-0 text-accent" />
+        <div className="flex items-center gap-2.5 border-b border-hairline px-4 py-3.5">
+          <IconSearch size={16} className="shrink-0 text-ink-4" />
           <input
             ref={inputRef}
             autoFocus
@@ -202,46 +317,51 @@ export function CommandPalette({ onPrint }: { onPrint: () => void }) {
               }
             }}
             placeholder="Jump to a scene, switch view, run a command…"
-            className="w-full bg-transparent py-2.5 text-sm text-ink outline-none placeholder:text-ink-3"
+            className="w-full bg-transparent text-sm text-ink caret-accent outline-none placeholder:text-ink-4"
             aria-label="Search commands"
           />
-          <kbd className="rounded border border-line px-1 text-[10px] text-ink-3">
+          <kbd className="rounded border border-line px-1.5 font-mono text-[10px] text-ink-4">
             esc
           </kbd>
         </div>
-        <ul role="listbox" className="max-h-80 overflow-y-auto py-1">
+        <div className="max-h-[52vh] overflow-y-auto py-1">
           {filtered.length === 0 && (
-            <li className="px-3 py-4 text-center text-xs text-ink-3">
+            <p className="px-4 py-6 text-center text-xs text-ink-3">
               No matches.
-            </li>
+            </p>
           )}
-          {filtered.map((c, i) => (
-            <li key={c.id}>
-              <button
-                role="option"
-                aria-selected={i === index}
-                onMouseEnter={() => setIndex(i)}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  run(c);
-                }}
-                className={`flex w-full items-center justify-between px-3 py-1.5 text-left text-xs ${
-                  i === index ? "bg-accent-soft text-ink" : "text-ink-2"
-                }`}
-              >
-                <span
-                  className={
-                    c.hint === "scene" ? "font-screenplay uppercase" : ""
-                  }
-                >
-                  {c.label}
-                </span>
-                <span className="text-[10px] text-ink-3">{c.hint}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+          {jumps.length > 0 && (
+            <>
+              <GroupLabel>Jump to</GroupLabel>
+              <ul role="listbox">{jumps.map(renderRow)}</ul>
+            </>
+          )}
+          {cmds.length > 0 && (
+            <>
+              <GroupLabel className={jumps.length > 0 ? "border-t border-hairline mt-1 pt-2.5" : ""}>
+                Commands
+              </GroupLabel>
+              <ul role="listbox">{cmds.map(renderRow)}</ul>
+            </>
+          )}
+        </div>
       </div>
+    </div>
+  );
+}
+
+function GroupLabel({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`px-4 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-ink-4 ${className}`}
+    >
+      {children}
     </div>
   );
 }

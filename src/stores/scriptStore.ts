@@ -18,7 +18,7 @@ import type {
   TitlePage,
 } from "../types";
 import { ELEMENT_TYPES, REVISION_COLOR_ORDER } from "../types";
-import { normalizeText } from "../engine/stateMachine";
+import { canonicalCharacterName, normalizeText } from "../engine/stateMachine";
 import { pageCount } from "../engine/pagination";
 import { countWords } from "../engine/analysis";
 
@@ -315,6 +315,12 @@ export interface ScriptState {
   lockScript: () => void;
   unlockScript: () => void;
   bumpRevision: () => RevisionColor;
+  /**
+   * Rename every character cue whose canonical name matches `from` to `to`
+   * (extensions like "(V.O.)" preserved). One history entry. Returns the
+   * number of cues rewritten.
+   */
+  renameCharacter: (from: string, to: string) => number;
   markDirty: () => void;
   markSaved: () => void;
 }
@@ -825,6 +831,24 @@ export const useScriptStore = create<ScriptState>((set, get) => {
       const next = REVISION_COLOR_ORDER[(i + 1) % REVISION_COLOR_ORDER.length];
       withoutHistory(() => ({ revisionColor: next }));
       return next;
+    },
+
+    renameCharacter: (from, to) => {
+      const FROM = canonicalCharacterName(from);
+      const TO = canonicalCharacterName(to);
+      if (!FROM || !TO || FROM === TO) return 0;
+      const match = (el: ScriptElement) =>
+        el.type === "character" && canonicalCharacterName(el.text) === FROM;
+      const count = get().script.elements.filter(match).length;
+      if (count === 0) return 0;
+      withHistory((s) => ({
+        elements: s.elements.map((el) => {
+          if (!match(el)) return el;
+          const ext = el.text.match(/\([^)]*\)\s*$/)?.[0] ?? "";
+          return { ...el, text: ext ? `${TO} ${ext}` : TO };
+        }),
+      }));
+      return count;
     },
 
     markDirty: () => set({ dirty: true }),

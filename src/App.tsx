@@ -13,7 +13,7 @@ import { SceneNavigator } from "./components/SceneNavigator";
 import { BeatBoard } from "./components/BeatBoard";
 import { AnalyticsPanel } from "./components/AnalyticsPanel";
 import { TitlePageView } from "./components/TitlePageView";
-import { NotesPanel } from "./components/NotesPanel";
+import { InspectorPanel } from "./components/InspectorPanel";
 import { StoryBible } from "./components/StoryBible";
 import { HistoryTimeline } from "./components/HistoryTimeline";
 import { Library } from "./components/Library";
@@ -80,50 +80,6 @@ function NavigatorDrawer() {
   );
 }
 
-/**
- * Honest account state: while the session is anonymous (or cloud sync is
- * unreachable) the draft lives only in this browser. Recovery must never
- * silently depend on account linking the user was never told about.
- */
-function GuestBanner({
-  user,
-  syncState,
-}: {
-  user: AccountUser | null;
-  syncState: string;
-}) {
-  const dismissed = useUiStore((s) => s.guestBannerDismissed);
-  const dismissGuestBanner = useUiStore((s) => s.dismissGuestBanner);
-  const setAccountMenuOpen = useUiStore((s) => s.setAccountMenuOpen);
-  if (dismissed || (user && !user.isAnonymous)) return null;
-  const offline = !user || syncState === "local";
-  return (
-    <div
-      data-testid="guest-banner"
-      className="no-print flex items-center gap-3 border-b border-line bg-sunken px-3 py-1.5 font-ui text-xs text-ink-2"
-    >
-      <span className="flex-1">
-        {offline
-          ? "Cloud sync is offline — this draft lives only in this browser right now. Clearing site data would erase it."
-          : "You're writing as a guest — this draft's cloud copy is tied to this browser. Add an account to recover your work on any device."}
-      </span>
-      <button
-        onClick={() => setAccountMenuOpen(true)}
-        className="rounded-md bg-accent px-2 py-1 font-medium text-on-accent hover:bg-accent-press"
-      >
-        Create account
-      </button>
-      <button
-        onClick={dismissGuestBanner}
-        aria-label="Dismiss"
-        className="rounded-md px-1.5 py-1 text-ink-3 hover:bg-surface hover:text-ink"
-      >
-        ×
-      </button>
-    </div>
-  );
-}
-
 function readHashScriptId(): string | null {
   const m = window.location.hash.match(/^#\/s\/([A-Za-z0-9_-]+)/);
   return m ? m[1] : null;
@@ -147,7 +103,6 @@ export default function App() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
   const notesOpen = useUiStore((s) => s.notesOpen);
   const focusMode = useUiStore((s) => s.focusMode);
-  const darkMode = useUiStore((s) => s.darkMode);
   const toggleFocusMode = useUiStore((s) => s.toggleFocusMode);
   const [syncState, setSyncState] = useState("local");
   const [booted, setBooted] = useState(false);
@@ -571,7 +526,7 @@ export default function App() {
   return (
     <PaginationProvider>
       {printing && <PrintView />}
-      <div className={`app-root ${darkMode ? "dark" : ""}`}>
+      <div className="app-root">
         <div className="flex h-screen flex-col bg-bg font-ui text-ink">
           {!focusMode && (
             <Toolbar
@@ -579,6 +534,7 @@ export default function App() {
               user={user}
               onAuthChanged={refreshUser}
               onPrint={requestPrint}
+              onSave={() => void performSave()}
             />
           )}
           {pendingRemote && (
@@ -602,17 +558,14 @@ export default function App() {
               </button>
             </div>
           )}
-          {!focusMode && booted && (
-            <GuestBanner user={user} syncState={syncState} />
-          )}
           <div className="flex min-h-0 flex-1">
             {!focusMode && sidebarOpen && view === "editor" && (
-              <aside className="no-print hidden w-64 shrink-0 overflow-y-auto border-r border-line bg-bg font-ui lg:block">
+              <aside className="no-print hidden w-[236px] shrink-0 overflow-hidden lg:block">
                 <SceneNavigator />
               </aside>
             )}
             {!focusMode && view === "editor" && <NavigatorDrawer />}
-            <main className="min-w-0 flex-1 overflow-y-auto">
+            <main className="min-w-0 flex-1 overflow-y-auto bg-bg">
               {!booted ? (
                 <div className="flex h-full items-center justify-center text-sm text-gray-400">
                   Opening your script…
@@ -638,7 +591,9 @@ export default function App() {
                 </>
               )}
             </main>
-            {!focusMode && notesOpen && view === "editor" && <NotesPanel />}
+            {!focusMode && notesOpen && view === "editor" && (
+              <InspectorPanel />
+            )}
           </div>
           <Toaster />
           <CommandPalette onPrint={requestPrint} />
