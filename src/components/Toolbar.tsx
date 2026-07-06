@@ -3,6 +3,7 @@ import { useScriptStore } from '../stores/scriptStore'
 import { useUiStore, type AppView } from '../stores/uiStore'
 import { ELEMENT_LABELS, ELEMENT_TYPES, type ElementType } from '../types'
 import { exportFountain, importFountain } from '../engine/fountain'
+import { AccountMenu, type AccountUser } from './AccountMenu'
 
 function download(filename: string, text: string) {
   const a = document.createElement('a')
@@ -19,9 +20,18 @@ const VIEWS: Array<{ id: AppView; label: string }> = [
   { id: 'analytics', label: 'Analytics' },
   { id: 'history', label: 'History' },
   { id: 'titlepage', label: 'Title Page' },
+  { id: 'library', label: 'Library' },
 ]
 
-export function Toolbar({ syncState }: { syncState: string }) {
+export function Toolbar({
+  syncState,
+  user,
+  onAuthChanged,
+}: {
+  syncState: string
+  user: AccountUser | null
+  onAuthChanged: () => void
+}) {
   const script = useScriptStore((s) => s.script)
   const { undo, redo, setElementType, lockScript, unlockScript, bumpRevision, loadScript, checkpoint } =
     useScriptStore()
@@ -101,7 +111,15 @@ export function Toolbar({ syncState }: { syncState: string }) {
             </button>
           </>
         ) : (
-          <button onClick={lockScript} className="rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600" title="Lock pages & number scenes for production">
+          <button
+            onClick={() => {
+              lockScript()
+              // A production lock is a milestone — always snapshot it.
+              useScriptStore.getState().recordSnapshot('Locked for production')
+            }}
+            className="rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600"
+            title="Lock pages & number scenes for production"
+          >
             🔒 Lock
           </button>
         )}
@@ -120,7 +138,13 @@ export function Toolbar({ syncState }: { syncState: string }) {
             className="hidden"
             onChange={async (e) => {
               const f = e.target.files?.[0]
-              if (f) loadScript(importFountain(await f.text()))
+              if (f) {
+                const imported = importFountain(await f.text())
+                loadScript(imported)
+                useScriptStore.getState().loadTimeline([])
+                // Imports must persist even before the first edit.
+                useScriptStore.getState().markDirty()
+              }
               e.target.value = ''
             }}
           />
@@ -138,6 +162,7 @@ export function Toolbar({ syncState }: { syncState: string }) {
           ⛶ Focus
         </button>
         <SprintButton />
+        <AccountMenu user={user} onAuthChanged={onAuthChanged} />
       </div>
     </header>
   )

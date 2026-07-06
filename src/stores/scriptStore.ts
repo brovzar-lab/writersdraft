@@ -17,7 +17,7 @@ import type {
   StoryDoc,
   TitlePage,
 } from '../types'
-import { REVISION_COLOR_ORDER } from '../types'
+import { ELEMENT_TYPES, REVISION_COLOR_ORDER } from '../types'
 import { normalizeText } from '../engine/stateMachine'
 import { pageCount } from '../engine/pagination'
 import { countWords } from '../engine/analysis'
@@ -49,9 +49,120 @@ export function emptyScript(): Script {
   }
 }
 
-/** Fill in fields missing from scripts saved by older versions. */
-export function migrateScript(s: Partial<Script>): Script {
-  return { ...emptyScript(), ...s, docs: s.docs ?? [], sceneMeta: s.sceneMeta ?? {} }
+const VALID_TYPES = new Set<string>(ELEMENT_TYPES)
+const VALID_REVISIONS = new Set<string>(REVISION_COLOR_ORDER)
+const VALID_GENDERS = new Set(['female', 'male', 'nonbinary', 'unspecified'])
+const VALID_DOC_KINDS = new Set(['treatment', 'outline', 'bio', 'research'])
+
+const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback)
+const num = (v: unknown, fallback = 0): number =>
+  typeof v === 'number' && Number.isFinite(v) ? v : fallback
+const strArray = (v: unknown): string[] | undefined =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : undefined
+
+function sanitizeElement(v: unknown): ScriptElement | null {
+  if (!v || typeof v !== 'object') return null
+  const e = v as Record<string, unknown>
+  const el: ScriptElement = {
+    id: str(e.id) || newId(),
+    type: VALID_TYPES.has(str(e.type)) ? (e.type as ElementType) : 'action',
+    text: str(e.text),
+  }
+  if (typeof e.sceneNumber === 'string') el.sceneNumber = e.sceneNumber
+  if (typeof e.locked === 'boolean') el.locked = e.locked
+  if (typeof e.revisionColor === 'string') el.revisionColor = e.revisionColor
+  const tags = strArray(e.tags)
+  if (tags) el.tags = tags
+  const alternates = strArray(e.alternates)
+  if (alternates) el.alternates = alternates
+  if (typeof e.activeAlternate === 'number') el.activeAlternate = e.activeAlternate
+  return el
+}
+
+/**
+ * Validate and repair a script of unknown provenance (localStorage,
+ * IndexedDB, Firestore, older app versions) so no malformed shape ever
+ * reaches the store or the render tree. Never throws; always returns a
+ * structurally valid Script.
+ */
+export function migrateScript(input: Partial<Script> | unknown): Script {
+  const base = emptyScript()
+  if (!input || typeof input !== 'object') return base
+  const s = input as Record<string, unknown>
+
+  const elements = Array.isArray(s.elements)
+    ? s.elements.map(sanitizeElement).filter((e): e is ScriptElement => e !== null)
+    : []
+
+  const tp = (s.titlePage ?? {}) as Record<string, unknown>
+  const tagsIn = Array.isArray(s.tags) ? s.tags : []
+  const notesIn = Array.isArray(s.notes) ? s.notes : []
+  const charsIn = Array.isArray(s.characters) ? s.characters : []
+  const docsIn = Array.isArray(s.docs) ? s.docs : []
+
+  const sceneMeta: Script['sceneMeta'] = {}
+  if (s.sceneMeta && typeof s.sceneMeta === 'object') {
+    for (const [k, v] of Object.entries(s.sceneMeta as Record<string, unknown>)) {
+      if (v && typeof v === 'object') {
+        const m = v as Record<string, unknown>
+        sceneMeta[k] = {
+          ...(typeof m.color === 'string' ? { color: m.color } : {}),
+          ...(typeof m.synopsis === 'string' ? { synopsis: m.synopsis } : {}),
+        }
+      }
+    }
+  }
+
+  return {
+    id: str(s.id) || base.id,
+    titlePage: {
+      title: str(tp.title, base.titlePage.title),
+      author: str(tp.author),
+      contact: str(tp.contact),
+      draftDate: str(tp.draftDate),
+    },
+    elements: elements.length ? elements : base.elements,
+    locked: s.locked === true,
+    revisionColor: VALID_REVISIONS.has(str(s.revisionColor))
+      ? (s.revisionColor as RevisionColor)
+      : 'white',
+    tags: tagsIn
+      .filter((t): t is Record<string, unknown> => !!t && typeof t === 'object')
+      .filter((t) => typeof t.id === 'string' && typeof t.name === 'string')
+      .map((t) => ({ id: t.id as string, name: t.name as string, color: str(t.color, '#cbd5e1') })),
+    notes: notesIn
+      .filter((n): n is Record<string, unknown> => !!n && typeof n === 'object')
+      .filter((n) => typeof n.id === 'string' && typeof n.elementId === 'string')
+      .map((n) => ({
+        id: n.id as string,
+        elementId: n.elementId as string,
+        author: str(n.author),
+        text: str(n.text),
+        createdAt: num(n.createdAt),
+        ...(n.resolved === true ? { resolved: true } : {}),
+      })),
+    characters: charsIn
+      .filter((c): c is Record<string, unknown> => !!c && typeof c === 'object')
+      .filter((c) => typeof c.name === 'string')
+      .map((c) => ({
+        name: c.name as string,
+        gender: VALID_GENDERS.has(str(c.gender))
+          ? (c.gender as CharacterProfile['gender'])
+          : 'unspecified',
+      })),
+    sceneMeta,
+    docs: docsIn
+      .filter((d): d is Record<string, unknown> => !!d && typeof d === 'object')
+      .filter((d) => typeof d.id === 'string')
+      .map((d) => ({
+        id: d.id as string,
+        title: str(d.title, 'Untitled'),
+        kind: VALID_DOC_KINDS.has(str(d.kind)) ? (d.kind as StoryDoc['kind']) : 'research',
+        content: str(d.content),
+        updatedAt: num(d.updatedAt),
+      })),
+    updatedAt: num(s.updatedAt),
+  }
 }
 
 interface Snapshot {
@@ -61,14 +172,38 @@ interface Snapshot {
 
 const HISTORY_LIMIT = 200
 
+/** Outcome of offering a remote snapshot to the store. */
+export type RemoteReceiveResult = 'applied' | 'conflict' | 'ignored'
+
 export interface ScriptState {
   script: Script
   /** Undo/redo stacks of structural snapshots. */
   past: Snapshot[]
   future: Snapshot[]
   dirty: boolean
+  /** A newer remote version that arrived while local edits were unsaved. */
+  pendingRemote: Script | null
+  /**
+   * updatedAt of the last version this session loaded from or wrote to the
+   * cloud. Remote snapshots are judged against THIS, not the local typing
+   * timestamp — during concurrent editing the local clock always outruns
+   * the remote save, and comparing against it would silently discard the
+   * collaborator's version.
+   */
+  lastSyncedAt: number
 
   loadScript: (s: Script) => void
+  /**
+   * Offer a remote snapshot. Applied only when it is new AND the local
+   * store is clean; applying preserves the undo stack (the pre-remote state
+   * is pushed onto it). A new remote over a dirty store parks in
+   * pendingRemote for the user to resolve — remote data never silently
+   * overwrites unsaved work.
+   */
+  receiveRemote: (remote: Script) => RemoteReceiveResult
+  resolveConflict: (choice: 'keep-local' | 'take-remote') => void
+  /** Record a successful cloud write of the version stamped `at`. */
+  markSynced: (at: number) => void
   setTitlePage: (tp: Partial<TitlePage>) => void
 
   updateElementText: (id: string, text: string) => void
@@ -149,8 +284,66 @@ export const useScriptStore = create<ScriptState>((set, get) => {
     past: [],
     future: [],
     dirty: false,
+    pendingRemote: null,
+    lastSyncedAt: 0,
 
-    loadScript: (s) => set({ script: s, past: [], future: [], dirty: false }),
+    loadScript: (s) =>
+      set({
+        script: s,
+        past: [],
+        future: [],
+        dirty: false,
+        pendingRemote: null,
+        lastSyncedAt: s.updatedAt,
+      }),
+
+    receiveRemote: (remote) => {
+      const state = get()
+      if (remote.id !== state.script.id) return 'ignored'
+      // Echoes of our own saves and stale snapshots carry a timestamp we
+      // have already synced — drop them.
+      if (remote.updatedAt <= state.lastSyncedAt) return 'ignored'
+      if (state.dirty) {
+        set({ pendingRemote: remote })
+        return 'conflict'
+      }
+      set({
+        pendingRemote: null,
+        past: [...state.past, snapshot(state.script)].slice(-HISTORY_LIMIT),
+        future: [],
+        dirty: false,
+        script: remote,
+        lastSyncedAt: remote.updatedAt,
+      })
+      return 'applied'
+    },
+
+    markSynced: (at) =>
+      set((state) => ({ lastSyncedAt: Math.max(state.lastSyncedAt, at) })),
+
+    resolveConflict: (choice) =>
+      set((state) => {
+        const remote = state.pendingRemote
+        if (!remote) return {}
+        if (choice === 'keep-local') {
+          // The kept version must outrank the rejected remote even when the
+          // remote writer's clock runs fast, or the conflict re-triggers.
+          return {
+            pendingRemote: null,
+            dirty: true,
+            script: { ...state.script, updatedAt: Math.max(Date.now(), remote.updatedAt + 1) },
+          }
+        }
+        // take-remote: the local version stays reachable via undo.
+        return {
+          pendingRemote: null,
+          past: [...state.past, snapshot(state.script)].slice(-HISTORY_LIMIT),
+          future: [],
+          dirty: false,
+          script: remote,
+          lastSyncedAt: Math.max(state.lastSyncedAt, remote.updatedAt),
+        }
+      }),
 
     setTitlePage: (tp) =>
       withHistory((s) => ({ titlePage: { ...s.titlePage, ...tp } })),

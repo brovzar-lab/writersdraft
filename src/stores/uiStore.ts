@@ -1,7 +1,14 @@
 /** UI chrome state: panels, focus mode, active view, active element. */
 import { create } from 'zustand'
 
-export type AppView = 'editor' | 'beatboard' | 'analytics' | 'titlepage' | 'bible' | 'history'
+export type AppView =
+  | 'editor'
+  | 'beatboard'
+  | 'analytics'
+  | 'titlepage'
+  | 'bible'
+  | 'history'
+  | 'library'
 
 /** An active writing sprint (distraction-buster with a word goal). */
 export interface Sprint {

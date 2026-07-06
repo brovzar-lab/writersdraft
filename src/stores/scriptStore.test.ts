@@ -27,6 +27,8 @@ beforeEach(() => {
     future: [],
     dirty: false,
     timeline: [],
+    pendingRemote: null,
+    lastSyncedAt: 0,
   })
 })
 
@@ -190,6 +192,160 @@ describe('tags, notes, alternates', () => {
     store().setActiveAlternate(el.id, 0)
     expect(store().script.elements[3].text).toBe('Ugh, morning already?')
     expect(store().script.elements[3].alternates).toContain('What a beautiful morning.')
+  })
+})
+
+describe('remote snapshots (data-loss regression)', () => {
+  function remoteVersion(label: string): Script {
+    const s = useScriptStore.getState().script
+    return {
+      ...s,
+      elements: s.elements.map((el, i) =>
+        i === 1 ? { ...el, text: label } : { ...el },
+      ),
+      updatedAt: s.updatedAt + 1000,
+    }
+  }
+
+  it('applies a newer remote when local is clean, preserving the undo stack', () => {
+    store().insertElementAfter(store().script.elements[0].id, 'action', 'Local edit')
+    store().markSaved()
+    const pastBefore = store().past.length
+    const remote = remoteVersion('Remote text')
+    expect(store().receiveRemote(remote)).toBe('applied')
+    expect(store().script.elements[1].text).toBe('Remote text')
+    // Undo history survives and the pre-remote state is one undo away.
+    expect(store().past.length).toBe(pastBefore + 1)
+    store().undo()
+    expect(store().script.elements[1].text).toBe('Local edit')
+  })
+
+  it('NEVER overwrites a dirty local store; parks the remote as a conflict', () => {
+    const id = store().script.elements[1].id
+    store().checkpoint()
+    store().updateElementText(id, 'Unsaved local typing')
+    const remote = remoteVersion('Remote text')
+    expect(store().receiveRemote(remote)).toBe('conflict')
+    // Local content untouched, remote parked.
+    expect(store().script.elements[1].text).toBe('Unsaved local typing')
+    expect(store().pendingRemote).not.toBeNull()
+    expect(store().dirty).toBe(true)
+  })
+
+  it('ignores already-synced snapshots (own echoes) and other scripts', () => {
+    useScriptStore.setState({ lastSyncedAt: 5000 })
+    const echo = { ...store().script, updatedAt: 5000 }
+    expect(store().receiveRemote(echo)).toBe('ignored')
+    const stale = { ...store().script, updatedAt: 4000 }
+    expect(store().receiveRemote(stale)).toBe('ignored')
+    const other = { ...remoteVersion('x'), id: 'different-script' }
+    expect(store().receiveRemote(other)).toBe('ignored')
+  })
+
+  it('flags a conflict even when local typing outruns the remote clock', () => {
+    // Concurrent editing: our keystrokes stamp updatedAt with Date.now(),
+    // which is AFTER the collaborator's save. The remote must still park as
+    // a conflict — comparing against the local timestamp would silently
+    // discard (and then overwrite) the collaborator's version.
+    useScriptStore.setState({ lastSyncedAt: 1000 })
+    const remote = { ...store().script, updatedAt: 2000 } // newer than synced
+    remote.elements = remote.elements.map((el, i) =>
+      i === 1 ? { ...el, text: 'Collaborator edit' } : el,
+    )
+    const id = store().script.elements[1].id
+    store().updateElementText(id, 'My in-flight typing') // stamps Date.now() >> 2000
+    expect(store().script.updatedAt).toBeGreaterThan(remote.updatedAt)
+    expect(store().receiveRemote(remote)).toBe('conflict')
+    expect(store().pendingRemote).not.toBeNull()
+    expect(store().script.elements[1].text).toBe('My in-flight typing')
+  })
+
+  it('does not mistake own echo for a conflict while typing', () => {
+    // After our save syncs at t=5000, the server echo of that save must not
+    // raise a banner just because we kept typing.
+    useScriptStore.setState({ lastSyncedAt: 5000 })
+    const id = store().script.elements[1].id
+    store().updateElementText(id, 'still typing')
+    const echo = { ...store().script, updatedAt: 5000 }
+    expect(store().receiveRemote(echo)).toBe('ignored')
+    expect(store().pendingRemote).toBeNull()
+  })
+
+  it('resolveConflict(keep-local) discards the remote and supersedes its timestamp', () => {
+    const id = store().script.elements[1].id
+    store().updateElementText(id, 'Mine')
+    const remote = remoteVersion('Theirs')
+    store().receiveRemote(remote)
+    store().resolveConflict('keep-local')
+    expect(store().pendingRemote).toBeNull()
+    expect(store().script.elements[1].text).toBe('Mine')
+    expect(store().dirty).toBe(true)
+    expect(store().script.updatedAt).toBeGreaterThan(remote.updatedAt)
+  })
+
+  it('resolveConflict(take-remote) applies the remote with local one undo away', () => {
+    const id = store().script.elements[1].id
+    store().updateElementText(id, 'Mine')
+    const remote = remoteVersion('Theirs')
+    store().receiveRemote(remote)
+    store().resolveConflict('take-remote')
+    expect(store().pendingRemote).toBeNull()
+    expect(store().script.elements[1].text).toBe('Theirs')
+    store().undo()
+    expect(store().script.elements[1].text).toBe('Mine')
+  })
+})
+
+describe('migrateScript validation', () => {
+  it('returns a valid empty script for garbage input', () => {
+    for (const garbage of [null, undefined, 42, 'text', [], { elements: 'nope' }]) {
+      const s = migrateScript(garbage as never)
+      expect(Array.isArray(s.elements)).toBe(true)
+      expect(s.elements.length).toBeGreaterThan(0)
+      expect(typeof s.id).toBe('string')
+      expect(typeof s.titlePage.title).toBe('string')
+    }
+  })
+
+  it('repairs malformed elements instead of crashing', () => {
+    const s = migrateScript({
+      id: 'x',
+      elements: [
+        { id: 'a', type: 'action', text: 'ok' },
+        { id: 'b', type: 'not-a-type', text: 'coerced' },
+        { id: 'c', type: 'dialogue', text: 42 },
+        'garbage',
+        null,
+        { type: 'action', text: 'missing id' },
+      ],
+    } as never)
+    expect(s.elements).toHaveLength(4)
+    expect(s.elements[1].type).toBe('action') // coerced from invalid
+    expect(s.elements[2].text).toBe('') // non-string text dropped
+    expect(s.elements[3].id).toBeTruthy() // id backfilled
+  })
+
+  it('strips foreign fields (ownerId, savedAt) from cloud documents', () => {
+    const s = migrateScript({
+      id: 'x',
+      elements: [makeElement('action', 'Hi')],
+      ownerId: 'someone',
+      savedAt: { seconds: 1 },
+    } as never)
+    expect('ownerId' in s).toBe(false)
+    expect('savedAt' in s).toBe(false)
+  })
+
+  it('coerces invalid revision colors and genders', () => {
+    const s = migrateScript({
+      id: 'x',
+      elements: [makeElement('action', 'Hi')],
+      revisionColor: 'purple',
+      characters: [{ name: 'SARAH', gender: 'robot' }, { gender: 'female' }],
+    } as never)
+    expect(s.revisionColor).toBe('white')
+    expect(s.characters).toHaveLength(1)
+    expect(s.characters[0].gender).toBe('unspecified')
   })
 })
 
