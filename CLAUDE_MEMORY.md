@@ -17,6 +17,15 @@ Don't render the text as JSX children. Sync `div.textContent` in an effect only 
 ## Industry layout constants (Courier 12pt, US Letter)
 10 chars/inch, 6 lines/inch, 55 body lines/page. Margins 1.5" left, 1" right/top/bottom. Indents in chars from left margin: action 0/60 wide, dialogue 10/35, parenthetical 16/25, character 22, transition right-aligned. Scene headings get 2 blank lines before, most other blocks 1, dialogue group 0.
 
+## autoFocus vs effect-blur ordering
+React autoFocus fires at commit; a same-open effect that calls document.activeElement.blur() runs AFTER it and steals focus from the element you just focused. Blur the previous element synchronously in the event handler that opens the overlay, never in the overlay's mount effect.
+
+## zoom-based page scaling must measure the un-zoomed parent
+`zoom` participates in layout, so it's right for scaling the script page (caret/virtualization keep working) — but a ResizeObserver on the zoomed element reports its own scaled coordinate space and feeds back. Observe the scroll parent.
+
+## Tokens are the only palette
+All chrome colors are semantic CSS vars (--desk/--ink/--brass/--viz-*) flipped by .dark and mapped via Tailwind v4 `@theme inline`. Contrast values were computed (ink-faint ≥4.5:1 on every desk surface); axe-core runs in smoke-a11y.mjs — keep it at zero critical/serious. Never reintroduce raw gray-*/blue-* classes.
+
 ## Emulators break networkidle waits
 Once the Firebase emulators are up, the app holds a live Firestore stream, so Playwright `waitUntil: 'networkidle'` never resolves. Always use `waitUntil: 'load'` + `waitForSelector('[data-element-type]')` in smokes.
 

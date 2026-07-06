@@ -1,4 +1,39 @@
-# STATUS — Ten-Minute Pro Test (audit items 7, 8, 10 + durability)
+# STATUS
+
+## Phase 3 — UI/UX (workstreams H–K), latest run
+
+Writer's-desk visual direction: warm paper/ink/brass, the page always reads
+as paper, the chrome recedes. One green commit per workstream.
+
+- **H — Design system**: semantic tokens (light + dark as selected themes,
+  not inversions) mapped into Tailwind v4; Inter UI font; inline SVG icon
+  set replacing every emoji; UI kit (Button/Menu/Toast/tooltips) with
+  outside-click + Escape menus; global focus rings; full component refit.
+- **I — Editor experience**: SmartType autocomplete (character names,
+  extensions, INT./EXT. + known locations + times, transitions — harvested
+  from the script itself; 13 engine tests); Ctrl+K command palette (scene
+  jump, views, commands) with a proven no-keystroke-leak guarantee;
+  element-type pill in the page gutter; "page N of M" indicator.
+- **J — Views + first-run**: cheat card teaching the five keystrokes with
+  a one-click sample scene (typed elements, single undo); purposeful empty
+  states everywhere; Library cards; Analytics rebuilt with a
+  six-check-validated palette (light AND dark) — composition bar + bar
+  table that doubles as the accessible table view.
+- **K — Responsive + a11y**: navigator drawer below lg; page auto-scales
+  (readable at 500px, no horizontal scroll); toolbar overflow menu;
+  axe-core WCAG A+AA = ZERO violations of any severity across all seven
+  views light + dark spot-checks; contrast fixed at token level (computed);
+  keyboard-operable menus.
+
+Verified per workstream and at the end: 171 unit tests + 20 rules tests,
+tsc, build, six behavior smokes + a11y smoke, screenshots light/dark/800px/
+500px. Deferred from Phase 3: true mobile *editing* (contentEditable on
+touch is its own project — mobile *reading* works), side-by-side dual
+dialogue rendering, onboarding tour beyond the cheat card.
+
+---
+
+# Previous run — Ten-Minute Pro Test (audit items 7, 8, 10 + durability)
 
 Follows the trust cluster (items 1–6, 9; commits `b32bfd0`…`3eb927b`).
 Four workstreams, one commit each — roll back to any commit and the app is

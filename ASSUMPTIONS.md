@@ -3,6 +3,28 @@
 Decisions made where the audit report left the choice open. Each picked the
 safer option for the writer's draft.
 
+## Phase 3 (H–K) — UI/UX
+
+- **Visual direction is "writer's desk"** (user-selected): warm paper/ink/
+  brass; dark mode is a dim room where the page stays warm — both themes
+  are hand-selected token sets, never automatic inversions.
+- **Semantic tokens over dark: variants**: components use bg-desk/text-ink/
+  border-line etc.; the .dark class flips the variables. New components
+  must use tokens, not raw palette classes.
+- **SmartType accept keys are Enter AND Tab** (FD behavior); with no popup
+  open the state machine is untouched. Enter-after-accept advances.
+- **Palette-open blurs the editor synchronously** in the Ctrl+K handler;
+  the input autoFocuses at commit. An effect-time blur is forbidden (it
+  fires after autoFocus and steals focus from the input — found the hard way).
+- **Gender chart palette**: 3 chromatic hues validated per mode +
+  a neutral "Other" slot for 'unspecified' with label relief; the bar
+  table doubles as the table view. Charts must keep using --viz-* tokens.
+- **Contrast is computed, not eyeballed**: ink-faint/brass were chosen to
+  clear 4.5:1 on every desk surface; if a new surface is added, re-check.
+- **Page scaling uses zoom, measured on the un-zoomed parent** — measuring
+  the zoomed container is a feedback loop. Mobile editing is out of scope;
+  mobile reading is in.
+
 ## Workstream D — FDX interop
 
 - **Dual dialogue is data, not layout, in this run**: `<DualDialogue>`
