@@ -25,8 +25,9 @@ export interface UiState {
   focusMode: boolean
   darkMode: boolean
   activeElementId: string | null
-  /** Caret position to restore when programmatically moving focus. */
-  pendingCaret: { elementId: string; offset: number } | null
+  /** Caret position to restore when programmatically moving focus.
+   *  `center` scrolls the target block to mid-viewport (navigator jumps). */
+  pendingCaret: { elementId: string; offset: number; center?: boolean } | null
   tagFilter: string | null
   sprint: Sprint | null
 
@@ -38,7 +39,7 @@ export interface UiState {
   toggleFocusMode: () => void
   toggleDarkMode: () => void
   setActiveElement: (id: string | null) => void
-  requestCaret: (elementId: string, offset: number) => void
+  requestCaret: (elementId: string, offset: number, center?: boolean) => void
   clearPendingCaret: () => void
   setTagFilter: (tagId: string | null) => void
 }
@@ -72,8 +73,8 @@ export const useUiStore = create<UiState>((set) => ({
     set((s) => ({ focusMode: !s.focusMode, sidebarOpen: s.focusMode })),
   toggleDarkMode: () => set((s) => ({ darkMode: !s.darkMode })),
   setActiveElement: (activeElementId) => set({ activeElementId }),
-  requestCaret: (elementId, offset) =>
-    set({ pendingCaret: { elementId, offset } }),
+  requestCaret: (elementId, offset, center) =>
+    set({ pendingCaret: { elementId, offset, center } }),
   clearPendingCaret: () => set({ pendingCaret: null }),
   setTagFilter: (tagFilter) => set({ tagFilter }),
 }))

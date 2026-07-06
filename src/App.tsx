@@ -12,6 +12,7 @@ import { NotesPanel } from './components/NotesPanel'
 import { StoryBible } from './components/StoryBible'
 import { HistoryTimeline } from './components/HistoryTimeline'
 import { Library } from './components/Library'
+import { PaginationProvider } from './components/PaginationContext'
 import { useCollabStore } from './stores/collabStore'
 import {
   deleteScript as deleteLocalScript,
@@ -45,11 +46,20 @@ function writeHashScriptId(id: string): void {
 }
 
 export default function App() {
-  const script = useScriptStore((s) => s.script)
-  const dirty = useScriptStore((s) => s.dirty)
+  // App must not re-render per keystroke: subscribe to the script id, not
+  // the script. Autosave watches the store directly (effect below).
+  const scriptId = useScriptStore((s) => s.script.id)
   const pendingRemote = useScriptStore((s) => s.pendingRemote)
-  const { loadScript, undo, redo, resolveConflict } = useScriptStore()
-  const { view, sidebarOpen, notesOpen, focusMode, darkMode, toggleFocusMode } = useUiStore()
+  const loadScript = useScriptStore((s) => s.loadScript)
+  const undo = useScriptStore((s) => s.undo)
+  const redo = useScriptStore((s) => s.redo)
+  const resolveConflict = useScriptStore((s) => s.resolveConflict)
+  const view = useUiStore((s) => s.view)
+  const sidebarOpen = useUiStore((s) => s.sidebarOpen)
+  const notesOpen = useUiStore((s) => s.notesOpen)
+  const focusMode = useUiStore((s) => s.focusMode)
+  const darkMode = useUiStore((s) => s.darkMode)
+  const toggleFocusMode = useUiStore((s) => s.toggleFocusMode)
   const [syncState, setSyncState] = useState('local')
   const [booted, setBooted] = useState(false)
   const [user, setUser] = useState<AccountUser | null>(null)
@@ -147,12 +157,24 @@ export default function App() {
     }
   }, [])
 
-  // ---- Debounced autosave.
+  // ---- Debounced autosave, driven by store subscription (not re-renders):
+  // every dirty change re-arms an 800ms trailing timer.
   useEffect(() => {
-    if (!booted || !dirty) return
-    const t = setTimeout(() => void performSave(), 800)
-    return () => clearTimeout(t)
-  }, [booted, dirty, script, performSave])
+    if (!booted) return
+    let t: number | undefined
+    const unsub = useScriptStore.subscribe((s, prev) => {
+      if (!s.dirty) return
+      if (s.script === prev.script && prev.dirty === s.dirty) return
+      window.clearTimeout(t)
+      t = window.setTimeout(() => void performSave(), 800)
+    })
+    // A script that boots dirty (e.g. an import) still saves.
+    if (useScriptStore.getState().dirty) t = window.setTimeout(() => void performSave(), 800)
+    return () => {
+      unsub()
+      window.clearTimeout(t)
+    }
+  }, [booted, performSave])
 
   // ---- Timeline persistence: separate write, separate failure domain.
   useEffect(() => {
@@ -243,7 +265,6 @@ export default function App() {
   }, [booted, user])
 
   // ---- Live collaboration: presence + remote snapshots for this script.
-  const scriptId = script.id
   useEffect(() => {
     if (!booted || !user) return
     let cancelled = false
@@ -386,8 +407,9 @@ export default function App() {
   }, [undo, redo, performSave, toggleFocusMode])
 
   return (
-    <div className={darkMode ? 'dark' : ''}>
-      <div className="flex h-screen flex-col bg-gray-100 dark:bg-slate-950 text-gray-900 dark:text-gray-100">
+    <PaginationProvider>
+      <div className={darkMode ? 'dark' : ''}>
+        <div className="flex h-screen flex-col bg-gray-100 dark:bg-slate-950 text-gray-900 dark:text-gray-100">
         {!focusMode && <Toolbar syncState={syncState} user={user} onAuthChanged={refreshUser} />}
         {pendingRemote && (
           <div className="no-print flex items-center gap-3 border-b border-amber-300 bg-amber-50 dark:bg-amber-900/30 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
@@ -443,7 +465,8 @@ export default function App() {
           {!focusMode && notesOpen && view === 'editor' && <NotesPanel />}
         </div>
         {!focusMode && <StatusBar />}
+        </div>
       </div>
-    </div>
+    </PaginationProvider>
   )
 }

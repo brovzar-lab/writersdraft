@@ -32,15 +32,34 @@ export function Toolbar({
   user: AccountUser | null
   onAuthChanged: () => void
 }) {
-  const script = useScriptStore((s) => s.script)
-  const { undo, redo, setElementType, lockScript, unlockScript, bumpRevision, loadScript, checkpoint } =
-    useScriptStore()
-  const past = useScriptStore((s) => s.past.length)
-  const future = useScriptStore((s) => s.future.length)
-  const { view, setView, toggleFocusMode, toggleDarkMode, darkMode, toggleNotes, notesOpen, activeElementId } =
-    useUiStore()
+  // Narrow selectors: the toolbar must not re-render on every keystroke.
+  const locked = useScriptStore((s) => s.script.locked)
+  const revisionColor = useScriptStore((s) => s.script.revisionColor)
+  const undo = useScriptStore((s) => s.undo)
+  const redo = useScriptStore((s) => s.redo)
+  const setElementType = useScriptStore((s) => s.setElementType)
+  const lockScript = useScriptStore((s) => s.lockScript)
+  const unlockScript = useScriptStore((s) => s.unlockScript)
+  const bumpRevision = useScriptStore((s) => s.bumpRevision)
+  const loadScript = useScriptStore((s) => s.loadScript)
+  const checkpoint = useScriptStore((s) => s.checkpoint)
+  const canUndo = useScriptStore((s) => s.past.length > 0)
+  const canRedo = useScriptStore((s) => s.future.length > 0)
+  const view = useUiStore((s) => s.view)
+  const setView = useUiStore((s) => s.setView)
+  const toggleFocusMode = useUiStore((s) => s.toggleFocusMode)
+  const toggleDarkMode = useUiStore((s) => s.toggleDarkMode)
+  const darkMode = useUiStore((s) => s.darkMode)
+  const toggleNotes = useUiStore((s) => s.toggleNotes)
+  const notesOpen = useUiStore((s) => s.notesOpen)
+  const activeElementId = useUiStore((s) => s.activeElementId)
 
-  const activeEl = script.elements.find((e) => e.id === activeElementId)
+  const activeId = useScriptStore((s) =>
+    s.script.elements.find((e) => e.id === activeElementId)?.id ?? null,
+  )
+  const activeType = useScriptStore(
+    (s) => s.script.elements.find((e) => e.id === activeElementId)?.type,
+  )
 
   return (
     <header className="no-print flex items-center gap-2 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-sm">
@@ -67,11 +86,11 @@ export function Toolbar({
       {view === 'editor' && (
         <select
           className="rounded border border-gray-200 dark:border-slate-600 bg-transparent px-1.5 py-0.5 text-xs"
-          value={activeEl?.type ?? 'action'}
+          value={activeType ?? 'action'}
           onChange={(e) => {
-            if (activeEl) {
+            if (activeId) {
               checkpoint()
-              setElementType(activeEl.id, e.target.value as ElementType)
+              setElementType(activeId, e.target.value as ElementType)
             }
           }}
           title="Element type (Tab/Enter also switch types)"
@@ -85,23 +104,23 @@ export function Toolbar({
       )}
 
       <div className="flex gap-1">
-        <button onClick={undo} disabled={past === 0} className="tb-btn rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600 disabled:opacity-30" title="Undo (Ctrl+Z)">
+        <button onClick={undo} disabled={!canUndo} className="tb-btn rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600 disabled:opacity-30" title="Undo (Ctrl+Z)">
           ↺
         </button>
-        <button onClick={redo} disabled={future === 0} className="rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600 disabled:opacity-30" title="Redo (Ctrl+Shift+Z)">
+        <button onClick={redo} disabled={!canRedo} className="rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600 disabled:opacity-30" title="Redo (Ctrl+Shift+Z)">
           ↻
         </button>
       </div>
 
       <div className="ml-auto flex items-center gap-2">
         <span className="text-xs text-gray-400">{syncState}</span>
-        {script.locked ? (
+        {locked ? (
           <>
             <span
               className="rounded px-1.5 py-0.5 text-xs capitalize border border-gray-300 dark:border-slate-600"
               title="Current revision color"
             >
-              {script.revisionColor} rev.
+              {revisionColor} rev.
             </span>
             <button onClick={() => bumpRevision()} className="rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600" title="Advance revision color">
               Next rev
@@ -124,7 +143,10 @@ export function Toolbar({
           </button>
         )}
         <button
-          onClick={() => download(`${script.titlePage.title || 'script'}.fountain`, exportFountain(script))}
+          onClick={() => {
+            const s = useScriptStore.getState().script
+            download(`${s.titlePage.title || 'script'}.fountain`, exportFountain(s))
+          }}
           className="rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600"
           title="Export as Fountain"
         >
@@ -169,13 +191,13 @@ export function Toolbar({
 }
 
 function SprintButton() {
-  const { sprint, startSprint } = useUiStore()
-  const elements = useScriptStore((s) => s.script.elements)
+  const sprint = useUiStore((s) => s.sprint)
+  const startSprint = useUiStore((s) => s.startSprint)
   if (sprint) return null
   return (
     <button
       onClick={() => {
-        const words = elements.reduce(
+        const words = useScriptStore.getState().script.elements.reduce(
           (a, el) => a + (el.text.trim() ? el.text.trim().split(/\s+/).length : 0),
           0,
         )

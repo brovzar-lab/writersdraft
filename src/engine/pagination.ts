@@ -83,9 +83,21 @@ export function wrapText(text: string, width: number): string[] {
   return lines
 }
 
-/** Wrapped display lines for one element. */
+/**
+ * Wrapped display lines for one element, memoized on element identity.
+ * Elements are immutable (every edit creates a new object), so a WeakMap
+ * keyed on the object is exact: an unchanged element can never return stale
+ * lines, and dropped elements are garbage-collected with their cache entry.
+ * Correctness never depends on the cache — only speed.
+ */
+const lineCache = new WeakMap<ScriptElement, string[]>()
+
 export function elementLines(el: ScriptElement): string[] {
-  return wrapText(el.text, ELEMENT_LAYOUT[el.type].width)
+  const cached = lineCache.get(el)
+  if (cached) return cached
+  const lines = wrapText(el.text, ELEMENT_LAYOUT[el.type].width)
+  lineCache.set(el, lines)
+  return lines
 }
 
 interface Block {
@@ -120,17 +132,27 @@ const DIALOGUE_GROUP: ReadonlySet<ElementType> = new Set([
   'character', 'dialogue', 'parenthetical',
 ])
 
+function toBlocks(elements: ScriptElement[]): Block[] {
+  return elements.map((element, elementIndex) => ({
+    element,
+    elementIndex,
+    lines: elementLines(element),
+  }))
+}
+
 /**
  * Paginate the script into pages of LINES_PER_PAGE lines.
  * Deterministic and pure — drives both the on-screen page view and export.
  */
 export function paginate(elements: ScriptElement[]): Page[] {
-  const blocks: Block[] = elements.map((element, elementIndex) => ({
-    element,
-    elementIndex,
-    lines: elementLines(element),
-  }))
+  return paginateBlocks(toBlocks(elements), 0, 0)
+}
 
+/**
+ * Core layout loop. `startBlock`/`pageOffset` let paginateIncremental resume
+ * at a clean page boundary; paginate() always runs it from the top.
+ */
+function paginateBlocks(blocks: Block[], startBlock: number, pageOffset: number): Page[] {
   const pages: Page[] = []
   let current: PageLine[] = []
 
@@ -141,7 +163,7 @@ export function paginate(elements: ScriptElement[]): Page[] {
   const pageIsEmpty = () => current.length === 0
 
   const flushPage = () => {
-    pages.push({ number: pages.length + 1, lines: current })
+    pages.push({ number: pageOffset + pages.length + 1, lines: current })
     current = []
   }
 
@@ -152,7 +174,7 @@ export function paginate(elements: ScriptElement[]): Page[] {
   const spaceBefore = (b: Block) =>
     current.length === 0 ? 0 : ELEMENT_LAYOUT[b.element.type].spaceBefore
 
-  for (let i = 0; i < blocks.length; i++) {
+  for (let i = startBlock; i < blocks.length; i++) {
     const b = blocks[i]
     const isEmpty = b.element.text === '' && b.lines.length === 1
 
@@ -202,8 +224,67 @@ export function paginate(elements: ScriptElement[]): Page[] {
     }
   }
 
-  if (current.length > 0 || pages.length === 0) flushPage()
+  // A script always renders at least one page (only relevant to full runs;
+  // a resumed run contributing zero pages is legitimate).
+  if (current.length > 0 || (pages.length === 0 && pageOffset === 0)) flushPage()
   return pages
+}
+
+/** Previous pagination run, for incremental repagination. */
+export interface PaginationCache {
+  elements: ScriptElement[]
+  pages: Page[]
+}
+
+/**
+ * Repaginate after an edit, reusing every page from the previous run that
+ * provably cannot have changed. Pages are reusable while (a) every block on
+ * them — including the one-block keep-with-next lookahead — precedes the
+ * first changed element, and (b) they end exactly at a block boundary (a
+ * mid-block split resumes with paginator state we can't reconstruct).
+ * Falls back to the full pure paginate() whenever unsure; output is always
+ * identical to paginate(elements), which the equivalence tests enforce.
+ */
+export function paginateIncremental(
+  elements: ScriptElement[],
+  prev: PaginationCache | null,
+): Page[] {
+  if (!prev || prev.pages.length === 0) return paginate(elements)
+  const old = prev.elements
+  if (old === elements) return prev.pages
+
+  // First structurally changed element (elements are immutable, so identity
+  // comparison is exact).
+  const minLen = Math.min(old.length, elements.length)
+  let changed = 0
+  while (changed < minLen && old[changed] === elements[changed]) changed++
+  if (changed === old.length && changed === elements.length) return prev.pages
+
+  let reuse = 0 // number of leading pages to reuse verbatim
+  for (let p = 0; p < prev.pages.length - 1; p++) {
+    const page = prev.pages[p]
+    let maxIdx = -1
+    for (const line of page.lines) {
+      if (line.elementIndex > maxIdx) maxIdx = line.elementIndex
+    }
+    // Even the keep-with-next lookahead from this page's last block must
+    // have seen only unchanged elements.
+    if (maxIdx > changed - 2) break
+    const first = prev.pages[p + 1].lines[0]
+    const cleanBoundary =
+      first !== undefined &&
+      first.kind === 'text' &&
+      first.lineIndex === 0 &&
+      first.elementIndex === maxIdx + 1
+    if (cleanBoundary) reuse = p + 1
+  }
+  if (reuse === 0) return paginate(elements)
+
+  // Elements before `changed` are identical in both arrays, so the resume
+  // index (< changed) addresses the same element in the new array.
+  const resumeIdx = prev.pages[reuse].lines[0].elementIndex
+  const tail = paginateBlocks(toBlocks(elements), resumeIdx, reuse)
+  return [...prev.pages.slice(0, reuse), ...tail]
 }
 
 /** Split dialogue with (MORE) / CHARACTER (CONT'D) etiquette. */

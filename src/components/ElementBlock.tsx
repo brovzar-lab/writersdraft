@@ -2,8 +2,15 @@
  * One editable screenplay element. A contentEditable div whose Tab/Enter/
  * Backspace behaviour is decided by the state machine in
  * src/engine/stateMachine.ts.
+ *
+ * Performance contract: this component renders thousands of times in a
+ * feature-length script, so every store read is a narrow selector that only
+ * changes for THIS block (actions are stable references; active/caret state
+ * selects to a per-block boolean). A keystroke re-renders exactly the edited
+ * block, not the script.
  */
-import { useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import type { ScriptElement } from '../types'
 import { ELEMENT_LAYOUT } from '../engine/pagination'
 import {
@@ -30,18 +37,23 @@ const PLACEHOLDERS: Partial<Record<ScriptElement['type'], string>> = {
   action: 'Action…',
 }
 
-export function ElementBlock({ element }: { element: ScriptElement }) {
+export const ElementBlock = memo(function ElementBlock({ element }: { element: ScriptElement }) {
   const ref = useRef<HTMLDivElement>(null)
-  const {
-    updateElementText,
-    setElementType,
-    insertElementAfter,
-    splitElement,
-    mergeWithPrevious,
-    checkpoint,
-  } = useScriptStore()
-  const { activeElementId, setActiveElement, pendingCaret, requestCaret, clearPendingCaret } =
-    useUiStore()
+  const updateElementText = useScriptStore((s) => s.updateElementText)
+  const setElementType = useScriptStore((s) => s.setElementType)
+  const insertElementAfter = useScriptStore((s) => s.insertElementAfter)
+  const splitElement = useScriptStore((s) => s.splitElement)
+  const mergeWithPrevious = useScriptStore((s) => s.mergeWithPrevious)
+  const checkpoint = useScriptStore((s) => s.checkpoint)
+
+  const active = useUiStore((s) => s.activeElementId === element.id)
+  const setActiveElement = useUiStore((s) => s.setActiveElement)
+  const requestCaret = useUiStore((s) => s.requestCaret)
+  const clearPendingCaret = useUiStore((s) => s.clearPendingCaret)
+  // Non-null only when the caret handoff targets this block.
+  const caretTarget = useUiStore((s) =>
+    s.pendingCaret?.elementId === element.id ? s.pendingCaret : null,
+  )
 
   // Keep DOM text in sync with store (skip when it already matches — that is
   // the common case for self-originated edits and preserves the caret).
@@ -54,12 +66,15 @@ export function ElementBlock({ element }: { element: ScriptElement }) {
 
   // Programmatic caret handoff (after Enter/Tab/merge/navigation).
   useEffect(() => {
-    if (pendingCaret?.elementId === element.id && ref.current) {
-      setCaretOffset(ref.current, pendingCaret.offset)
+    if (caretTarget && ref.current) {
+      if (caretTarget.center) {
+        ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+      setCaretOffset(ref.current, caretTarget.offset)
       setActiveElement(element.id)
       clearPendingCaret()
     }
-  }, [pendingCaret, element.id, setActiveElement, clearPendingCaret])
+  }, [caretTarget, element.id, setActiveElement, clearPendingCaret])
 
   const layout = ELEMENT_LAYOUT[element.type]
 
@@ -155,9 +170,9 @@ export function ElementBlock({ element }: { element: ScriptElement }) {
     if (normal !== element.text) updateElementText(element.id, normal)
   }
 
-  const active = activeElementId === element.id
-  const peers = useCollabStore((s) => s.peers).filter(
-    (p) => p.elementId === element.id && p.userId !== useCollabStore.getState().selfId,
+  // Re-renders only when the peers on THIS element change (shallow compare).
+  const peers = useCollabStore(
+    useShallow((s) => s.peers.filter((p) => p.elementId === element.id && p.userId !== s.selfId)),
   )
 
   return (
@@ -204,7 +219,7 @@ export function ElementBlock({ element }: { element: ScriptElement }) {
       )}
     </div>
   )
-}
+})
 
 /** What Enter would create next — shown in the status bar as a hint. */
 export function nextTypeHint(type: ScriptElement['type']): string {

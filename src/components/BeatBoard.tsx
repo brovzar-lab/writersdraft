@@ -65,7 +65,7 @@ export function BeatBoard() {
               className="text-left font-screenplay text-sm font-bold uppercase text-gray-800 dark:text-gray-100 hover:underline"
               onClick={() => {
                 setView('editor')
-                requestCaret(sc.id, 0)
+                requestCaret(sc.id, 0, true)
               }}
             >
               {sc.heading}

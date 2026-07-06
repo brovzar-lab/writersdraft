@@ -2,14 +2,18 @@
 import { useMemo } from 'react'
 import { useScriptStore } from '../stores/scriptStore'
 import { useUiStore } from '../stores/uiStore'
-import { paginate, elementPageMap } from '../engine/pagination'
+import { usePagination } from './PaginationContext'
 
 export function SceneNavigator() {
-  const script = useScriptStore((s) => s.script)
-  const scenes = useScriptStore((s) => s.scenes)()
+  const elements = useScriptStore((s) => s.script.elements)
+  const sceneMeta = useScriptStore((s) => s.script.sceneMeta)
+  const scenes = useMemo(
+    () => useScriptStore.getState().scenes(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [elements, sceneMeta],
+  )
   const requestCaret = useUiStore((s) => s.requestCaret)
-
-  const pageOf = useMemo(() => elementPageMap(paginate(script.elements)), [script.elements])
+  const { pageOf } = usePagination()
 
   return (
     <nav className="flex flex-col gap-1 p-2 overflow-y-auto">
@@ -23,10 +27,10 @@ export function SceneNavigator() {
         <button
           key={sc.id}
           onClick={() => {
-            requestCaret(sc.id, script.elements[sc.index].text.length)
-            document
-              .querySelector(`[data-element-id="${sc.id}"]`)
-              ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            const el = useScriptStore.getState().script.elements[sc.index]
+            // The caret handoff force-mounts and centers the target page,
+            // even when it is virtualized out of the DOM right now.
+            requestCaret(sc.id, el ? el.text.length : 0, true)
           }}
           className="flex items-start gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-gray-200 dark:hover:bg-slate-700"
         >

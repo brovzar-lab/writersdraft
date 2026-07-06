@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useScriptStore } from '../stores/scriptStore'
 import { useUiStore } from '../stores/uiStore'
-import { paginate } from '../engine/pagination'
+import { usePagination } from './PaginationContext'
 import { countWords } from '../engine/analysis'
 import { ELEMENT_LABELS } from '../types'
 import { NEXT_ON_ENTER, NEXT_ON_TAB } from '../engine/stateMachine'
@@ -12,7 +12,7 @@ export function StatusBar() {
   const dirty = useScriptStore((s) => s.dirty)
   const activeElementId = useUiStore((s) => s.activeElementId)
 
-  const pages = useMemo(() => paginate(elements).length, [elements])
+  const pages = usePagination().pages.length
   const words = useMemo(
     () => elements.reduce((a, el) => a + countWords(el.text), 0),
     [elements],
