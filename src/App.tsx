@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { emptyScript, migrateScript, useScriptStore } from './stores/scriptStore'
 import { useUiStore } from './stores/uiStore'
 import { Toolbar } from './components/Toolbar'
@@ -13,6 +14,7 @@ import { StoryBible } from './components/StoryBible'
 import { HistoryTimeline } from './components/HistoryTimeline'
 import { Library } from './components/Library'
 import { PaginationProvider } from './components/PaginationContext'
+import { PrintView } from './components/PrintView'
 import { useCollabStore } from './stores/collabStore'
 import {
   deleteScript as deleteLocalScript,
@@ -62,6 +64,7 @@ export default function App() {
   const toggleFocusMode = useUiStore((s) => s.toggleFocusMode)
   const [syncState, setSyncState] = useState('local')
   const [booted, setBooted] = useState(false)
+  const [printing, setPrinting] = useState(false)
   const [user, setUser] = useState<AccountUser | null>(null)
   const userIdRef = useRef<string | null>(null)
   const pendingCloudFetchRef = useRef<string | null>(null)
@@ -379,6 +382,30 @@ export default function App() {
     if (booted) writeHashScriptId(scriptId)
   }, [booted, scriptId])
 
+  // ---- Printing: mount the print-exact view, then hand off to the browser.
+  const requestPrint = useCallback(() => setPrinting(true), [])
+
+  useEffect(() => {
+    if (!printing) return
+    const done = () => setPrinting(false)
+    window.addEventListener('afterprint', done)
+    // Give the print DOM one frame to lay out before the dialog snapshots it.
+    const t = window.setTimeout(() => window.print(), 60)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener('afterprint', done)
+    }
+  }, [printing])
+
+  // Browser-menu print (no Ctrl+P): mount the print view synchronously.
+  useEffect(() => {
+    const before = () => {
+      if (!printing) flushSync(() => setPrinting(true))
+    }
+    window.addEventListener('beforeprint', before)
+    return () => window.removeEventListener('beforeprint', before)
+  }, [printing])
+
   // ---- Global keyboard shortcuts.
   useEffect(() => {
     const isFormField = (t: EventTarget | null) =>
@@ -395,6 +422,9 @@ export default function App() {
       } else if (mod && e.key.toLowerCase() === 's') {
         e.preventDefault()
         void performSave()
+      } else if (mod && e.key.toLowerCase() === 'p') {
+        e.preventDefault()
+        requestPrint()
       } else if (e.key === 'Escape' && useUiStore.getState().focusMode) {
         toggleFocusMode()
       } else if (mod && e.shiftKey && e.key.toLowerCase() === 'f') {
@@ -404,13 +434,21 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [undo, redo, performSave, toggleFocusMode])
+  }, [undo, redo, performSave, toggleFocusMode, requestPrint])
 
   return (
     <PaginationProvider>
-      <div className={darkMode ? 'dark' : ''}>
+      {printing && <PrintView />}
+      <div className={`app-root ${darkMode ? 'dark' : ''}`}>
         <div className="flex h-screen flex-col bg-gray-100 dark:bg-slate-950 text-gray-900 dark:text-gray-100">
-        {!focusMode && <Toolbar syncState={syncState} user={user} onAuthChanged={refreshUser} />}
+        {!focusMode && (
+          <Toolbar
+            syncState={syncState}
+            user={user}
+            onAuthChanged={refreshUser}
+            onPrint={requestPrint}
+          />
+        )}
         {pendingRemote && (
           <div className="no-print flex items-center gap-3 border-b border-amber-300 bg-amber-50 dark:bg-amber-900/30 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
             <span className="flex-1">

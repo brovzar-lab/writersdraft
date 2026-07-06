@@ -35,8 +35,66 @@
   pointer-events: none;
 }
 
+/* ---- Print: exact 55-line letter pages from the paginator ---- */
+
+.print-root {
+  display: none;
+}
+
 @media print {
-  .no-print {
+  @page {
+    size: letter;
+    margin: 0;
+  }
+  .no-print,
+  .app-root {
     display: none !important;
   }
+  .print-root {
+    display: block;
+    color: #000 !important;
+    background: #fff !important;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+}
+
+.print-page {
+  position: relative;
+  width: 8.5in;
+  height: 11in;
+  /* 1" top, 1.5" left, 1" right; the bottom is whatever remains after the
+     55-line (660pt) body — the industry-standard page. */
+  padding: 1in 1in 0 1.5in;
+  box-sizing: border-box;
+  overflow: hidden;
+  break-after: page;
+  page-break-after: always;
+  font-size: 12pt;
+}
+
+.print-body {
+  height: 660pt; /* 55 lines × 12pt */
+  overflow: hidden;
+}
+
+.print-page-number {
+  position: absolute;
+  top: 0.5in;
+  right: 1in;
+}
+
+.print-title-block {
+  margin-top: 3.3in;
+  text-align: center;
+}
+
+.print-contact {
+  position: absolute;
+  bottom: 1in;
+  left: 1.5in;
+  white-space: pre-wrap;
+  font-size: 12pt;
 }

@@ -152,6 +152,57 @@ describe('paginate', () => {
     expect(joined).toBe(longAction.text)
   })
 
+  it('carries the cue when a short dialogue moves whole to the next page (orphan regression)', () => {
+    // Fill to exactly 52 lines so the cue (gap+1) would end on line 54,
+    // leaving one line — too few for a 2-line dialogue, which then moves
+    // whole. Before the fix, page 1 ended with an orphaned "SARAH".
+    const els: ScriptElement[] = [scene()]
+    for (let i = 0; i < 24; i++) els.push(action(`Beat ${i}`)) // 1 + 48 = 49
+    els.push(action('z'.repeat(60) + ' ' + 'w'.repeat(20))) // +3 = 52
+    els.push(character('SARAH'))
+    els.push(dialogue('x'.repeat(35) + ' ' + 'y'.repeat(35))) // 2 lines
+    const pages = paginate(els)
+    expect(pages.length).toBe(2)
+    const lastLine = pages[0].lines[pages[0].lines.length - 1]
+    expect(lastLine.type).not.toBe('character')
+    expect(lastLine.kind).toBe('text') // no dangling blank either
+    // Cue and dialogue land together at the top of page 2.
+    expect(pages[1].lines[0]).toMatchObject({ type: 'character', kind: 'text', text: 'SARAH' })
+    expect(pages[1].lines[1].type).toBe('dialogue')
+    // No lines lost.
+    const dialogueLines = pages.flatMap((p) => p.lines).filter((l) => l.type === 'dialogue' && l.kind === 'text')
+    expect(dialogueLines).toHaveLength(2)
+  })
+
+  it('carries cue AND parenthetical when the dialogue flushes', () => {
+    // 51 lines, then cue(+gap)=53, paren=54, leaving 1 line for a 2-line speech.
+    const els: ScriptElement[] = [scene()]
+    for (let i = 0; i < 25; i++) els.push(action(`Beat ${i}`)) // 1 + 50 = 51
+    els.push(character('SARAH'))
+    els.push(makeElement('parenthetical', '(quietly)'))
+    els.push(dialogue('x'.repeat(35) + ' ' + 'y'.repeat(35)))
+    const pages = paginate(els)
+    expect(pages.length).toBe(2)
+    const p1Last = pages[0].lines[pages[0].lines.length - 1]
+    expect(['character', 'parenthetical']).not.toContain(p1Last.type)
+    expect(pages[1].lines[0]).toMatchObject({ type: 'character', text: 'SARAH' })
+    expect(pages[1].lines[1].type).toBe('parenthetical')
+    expect(pages[1].lines[2].type).toBe('dialogue')
+  })
+
+  it('carries the cue when a LONG dialogue cannot start under it', () => {
+    // Cue lands with a single line left; a >2-line dialogue needs 2 to start.
+    const els: ScriptElement[] = [scene()]
+    for (let i = 0; i < 24; i++) els.push(action(`Beat ${i}`))
+    els.push(action('z'.repeat(60) + ' ' + 'w'.repeat(20))) // 52 lines total
+    els.push(character('SARAH'))
+    els.push(dialogue('word '.repeat(120).trim())) // many lines
+    const pages = paginate(els)
+    const p1Last = pages[0].lines[pages[0].lines.length - 1]
+    expect(p1Last.type).not.toBe('character')
+    expect(pages[1].lines[0]).toMatchObject({ type: 'character', text: 'SARAH' })
+  })
+
   it('elementPageMap reports the page each element starts on', () => {
     const els: ScriptElement[] = [scene()]
     for (let i = 0; i < 80; i++) els.push(action(`Beat ${i}`))

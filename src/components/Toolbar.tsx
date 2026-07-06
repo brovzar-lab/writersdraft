@@ -27,10 +27,12 @@ export function Toolbar({
   syncState,
   user,
   onAuthChanged,
+  onPrint,
 }: {
   syncState: string
   user: AccountUser | null
   onAuthChanged: () => void
+  onPrint: () => void
 }) {
   // Narrow selectors: the toolbar must not re-render on every keystroke.
   const locked = useScriptStore((s) => s.script.locked)
@@ -171,7 +173,7 @@ export function Toolbar({
             }}
           />
         </label>
-        <button onClick={() => window.print()} className="rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600" title="Print / Save as PDF">
+        <button onClick={onPrint} className="rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600" title="Print / Save as PDF (Ctrl+P)">
           Print
         </button>
         <button onClick={toggleNotes} className={`rounded px-1.5 py-0.5 text-xs border ${notesOpen ? 'border-blue-400 text-blue-500' : 'border-gray-200 dark:border-slate-600'}`} title="Notes & tags">

@@ -1,118 +1,153 @@
 /**
- * The paginated editor surface. Page breaks come from the shared pagination
- * context (one incremental pagination per keystroke). Pages are virtualized:
- * only pages near the viewport — plus any page holding the active element or
- * a pending caret target — mount their contentEditable blocks; the rest keep
- * their height with an empty placeholder.
+ * The paginated editor surface, rendered FROM the paginator's PageLine
+ * output: block spacing is the paginator's real blank lines (a cue hugs its
+ * dialogue, scene headings get two clear lines) and (MORE)/(CONT'D) markers
+ * draw at page breaks — what you see is what the paginator counts and what
+ * print emits.
+ *
+ * An element whose lines span a page break renders whole on the page it
+ * starts on (an editable block can't be split across two contentEditables);
+ * the break markers show where the paginator splits it, and the print view
+ * is exact.
+ *
+ * Pages are virtualized: only pages near the viewport — plus any page
+ * holding the active element or a pending caret target — mount their
+ * blocks; the rest keep their height with a placeholder.
  */
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import { useScriptStore } from '../stores/scriptStore'
+import { memo, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useUiStore } from '../stores/uiStore'
 import { ELEMENT_LAYOUT } from '../engine/pagination'
-import { usePagination } from './PaginationContext'
+import { usePagination, type PaginationValue } from './PaginationContext'
 import { ElementBlock } from './ElementBlock'
-import type { ScriptElement } from '../types'
+import type { ElementType, Page } from '../types'
 
 export function ScriptEditor() {
-  const elements = useScriptStore((s) => s.script.elements)
-  const { pageOf } = usePagination()
-  const [printing, setPrinting] = useState(false)
-
-  // window.print() must never truncate to the mounted window.
-  useEffect(() => {
-    const before = () => setPrinting(true)
-    const after = () => setPrinting(false)
-    window.addEventListener('beforeprint', before)
-    window.addEventListener('afterprint', after)
-    return () => {
-      window.removeEventListener('beforeprint', before)
-      window.removeEventListener('afterprint', after)
-    }
-  }, [])
-
-  // Group elements by the page they start on.
-  const grouped = useMemo(() => {
-    const map = new Map<number, ScriptElement[]>()
-    for (const el of elements) {
-      const p = pageOf.get(el.id) ?? 1
-      if (!map.has(p)) map.set(p, [])
-      map.get(p)!.push(el)
-    }
-    return map
-  }, [elements, pageOf])
-
-  const pageNumbers = [...grouped.keys()].sort((a, b) => a - b)
-
+  const { pages, getElement } = usePagination()
   return (
     <div className="flex flex-col items-center gap-6 py-8">
-      {pageNumbers.map((n) => (
-        <EditorPage key={n} number={n} pageElements={grouped.get(n)!} forceMount={printing} />
+      {pages.map((page) => (
+        <EditorPage key={page.number} page={page} getElement={getElement} />
       ))}
     </div>
   )
 }
 
+/** One 12pt screenplay line of vertical space per blank line. */
+function Spacer({ lines }: { lines: number }) {
+  return <div aria-hidden style={{ height: `${lines * 12}pt` }} />
+}
+
+/** Non-editable (MORE) / CHARACTER (CONT'D) page-break etiquette marker. */
+function MarkerLine({ type, text }: { type: ElementType; text: string }) {
+  const layout = ELEMENT_LAYOUT[type]
+  return (
+    <div
+      aria-hidden
+      className="font-screenplay select-none text-black dark:text-gray-100"
+      style={{
+        marginLeft: `${layout.indent}ch`,
+        maxWidth: `${layout.width}ch`,
+        lineHeight: '12pt',
+        minHeight: '12pt',
+      }}
+    >
+      {text}
+    </div>
+  )
+}
+
 const EditorPage = memo(function EditorPage({
-  number,
-  pageElements,
-  forceMount,
+  page,
+  getElement,
 }: {
-  number: number
-  pageElements: ScriptElement[]
-  forceMount: boolean
+  page: Page
+  getElement: PaginationValue['getElement']
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const [nearViewport, setNearViewport] = useState(number <= 2)
+  const [nearViewport, setNearViewport] = useState(page.number <= 2)
   const tagFilter = useUiStore((s) => s.tagFilter)
 
-  // A page must mount when the caret is headed to (or already in) one of its
-  // elements, even if it is off-screen — navigator jumps and Enter at a page
+  // A page must mount when the caret is headed to (or already in) one of
+  // its elements, even off-screen — navigator jumps and Enter at a page
   // boundary depend on it.
   const holdsFocus = useUiStore((s) => {
     const target = s.pendingCaret?.elementId ?? s.activeElementId
-    return target != null && pageElements.some((el) => el.id === target)
+    return target != null && page.lines.some((l) => l.elementId === target)
   })
 
   useEffect(() => {
     const el = ref.current
     if (!el) return
+    // Root must be the scrolling <main>: with the default viewport root,
+    // rootMargin never reaches pages clipped by the scroll container, and
+    // pages would only mount at the moment they become visible.
     const io = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) setNearViewport(entry.isIntersecting)
       },
-      { rootMargin: '1500px 0px' },
+      { root: el.closest('main'), rootMargin: '1500px 0px' },
     )
     io.observe(el)
     return () => io.disconnect()
   }, [])
 
-  const mounted = nearViewport || holdsFocus || forceMount
+  const mounted = nearViewport || holdsFocus
+
+  let content: ReactNode = <div aria-hidden style={{ height: '660pt' }} />
+  if (mounted) {
+    const rows: ReactNode[] = []
+    const lines = page.lines
+    let i = 0
+    while (i < lines.length) {
+      const line = lines[i]
+      if (line.kind === 'blank') {
+        let n = 0
+        while (i < lines.length && lines[i].kind === 'blank') {
+          n++
+          i++
+        }
+        rows.push(<Spacer key={`sp-${i}`} lines={n} />)
+      } else if (line.kind === 'more' || line.kind === 'contd') {
+        rows.push(
+          <MarkerLine
+            key={`mk-${i}`}
+            type={line.kind === 'more' ? 'dialogue' : 'character'}
+            text={line.text}
+          />,
+        )
+        i++
+      } else {
+        // A run of text lines belonging to one element.
+        const first = line
+        while (i < lines.length && lines[i].kind === 'text' && lines[i].elementId === first.elementId) {
+          i++
+        }
+        if (first.lineIndex > 0) continue // continuation: drawn whole on its start page
+        const el = getElement(first.elementIndex, first.elementId)
+        if (!el) continue
+        const dim = tagFilter && !(el.tags ?? []).includes(tagFilter)
+        rows.push(
+          <div key={el.id} className={dim ? 'opacity-30' : ''}>
+            <ElementBlock element={el} />
+          </div>,
+        )
+      }
+    }
+    content = <div className="text-black dark:text-gray-100">{rows}</div>
+  }
 
   return (
     <div
       ref={ref}
-      data-page-number={number}
+      data-page-number={page.number}
       className="script-page bg-white dark:bg-slate-900 shadow-lg rounded-sm relative"
     >
-      {number > 1 && (
+      {page.number > 1 && (
         <span className="absolute top-[0.5in] right-[1in] font-screenplay text-black dark:text-gray-200 select-none">
-          {number}.
+          {page.number}.
         </span>
       )}
-      {mounted ? (
-        <div className="flex flex-col gap-[12pt] text-black dark:text-gray-100">
-          {pageElements.map((el) => {
-            const dim = tagFilter && !(el.tags ?? []).includes(tagFilter)
-            return (
-              <div key={el.id} className={dim ? 'opacity-30' : ''}>
-                <ElementBlock element={el} />
-              </div>
-            )
-          })}
-        </div>
-      ) : (
-        <div aria-hidden className="h-[9in]" />
-      )}
+      {content}
     </div>
   )
 })

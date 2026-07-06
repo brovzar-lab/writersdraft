@@ -168,6 +168,41 @@ function paginateBlocks(blocks: Block[], startBlock: number, pageOffset: number)
   }
 
   /**
+   * Flush because a dialogue-group block didn't fit — but a character cue
+   * (and any parentheticals) sitting at the bottom of the page belong WITH
+   * that block: carry them over so the cue is never orphaned.
+   */
+  const flushPageCarryingGroup = () => {
+    let cut = current.length
+    while (cut > 0) {
+      const line = current[cut - 1]
+      if (line.kind === 'text' && (line.type === 'character' || line.type === 'parenthetical')) {
+        cut--
+      } else {
+        break
+      }
+    }
+    if (cut === current.length) {
+      // Nothing to carry (e.g. page ends in action).
+      flushPage()
+      return
+    }
+    const carried = current.slice(cut)
+    // The spacing blank(s) before the carried cue must not end the page.
+    let end = cut
+    while (end > 0 && current[end - 1].kind === 'blank') end--
+    if (end === 0) {
+      // The page is nothing but the group — carrying would flush an empty
+      // page; fall back to a plain flush.
+      flushPage()
+      return
+    }
+    current = current.slice(0, end)
+    flushPage()
+    current = carried
+  }
+
+  /**
    * Lines the block needs on the current page including spacing, and the
    * minimum chunk that must fit to avoid an ugly break.
    */
@@ -193,9 +228,16 @@ function paginateBlocks(blocks: Block[], startBlock: number, pageOffset: number)
       if (next) need += ELEMENT_LAYOUT[next.element.type].spaceBefore + 1
     }
 
+    // Dialogue and parentheticals must drag their character cue along when
+    // they flush; anything else flushes plainly.
+    const isCuedGroupMember = b.element.type === 'dialogue' || b.element.type === 'parenthetical'
+
     if (b.lines.length <= 2 || keepWithNext || isEmpty) {
       // Small or protected blocks move to the next page whole.
-      if (need > remaining() && !pageIsEmpty()) flushPage()
+      if (need > remaining() && !pageIsEmpty()) {
+        if (isCuedGroupMember) flushPageCarryingGroup()
+        else flushPage()
+      }
       const g = spaceBefore(b)
       for (let k = 0; k < g; k++) push(blankLine(b))
       for (let li = 0; li < b.lines.length; li++) {
@@ -209,7 +251,8 @@ function paginateBlocks(blocks: Block[], startBlock: number, pageOffset: number)
     let gap2 = spaceBefore(b)
     if (gap2 + 2 > remaining() && !pageIsEmpty()) {
       // Not enough room for the gap plus a decent chunk (2 lines minimum).
-      flushPage()
+      if (isCuedGroupMember) flushPageCarryingGroup()
+      else flushPage()
       gap2 = 0
     }
     for (let k = 0; k < gap2; k++) push(blankLine(b))
@@ -276,7 +319,25 @@ export function paginateIncremental(
       first.kind === 'text' &&
       first.lineIndex === 0 &&
       first.elementIndex === maxIdx + 1
-    if (cleanBoundary) reuse = p + 1
+    if (!cleanBoundary) continue
+    // WHY the page ended is decided while processing the next page's first
+    // block, so that decision's entire read-horizon must precede the change:
+    //  - a dialogue-group member can trigger a cue carry-over, which reads
+    //    the whole contiguous group plus one lookahead block;
+    //  - a keep-with-next block (scene heading / shot) reads one block ahead;
+    //  - anything else reads only itself.
+    const startIdx = maxIdx + 1
+    let decisionEnd = startIdx
+    const startType = old[startIdx].type
+    if (DIALOGUE_GROUP.has(startType)) {
+      let groupEnd = startIdx
+      while (groupEnd < old.length && DIALOGUE_GROUP.has(old[groupEnd].type)) groupEnd++
+      decisionEnd = groupEnd
+    } else if (startType === 'scene_heading' || startType === 'shot') {
+      decisionEnd = startIdx + 1
+    }
+    if (decisionEnd >= changed) continue
+    reuse = p + 1
   }
   if (reuse === 0) return paginate(elements)
 
