@@ -16,6 +16,46 @@ export function hasSelection(): boolean {
   return !!sel && !sel.isCollapsed
 }
 
+/** Character offset of a (node, nodeOffset) boundary within a block. */
+function offsetIn(block: HTMLElement, node: Node, nodeOffset: number): number {
+  const r = document.createRange()
+  r.selectNodeContents(block)
+  r.setEnd(node, nodeOffset)
+  return r.toString().length
+}
+
+export interface BlockRange {
+  startId: string
+  startOffset: number
+  endId: string
+  endOffset: number
+}
+
+/**
+ * The current DOM selection resolved to element blocks. Returns null when
+ * there is no selection or a boundary is outside any element block;
+ * `crossBlock` distinguishes a spanning selection from a same-block one.
+ */
+export function getBlockSelection(): (BlockRange & { crossBlock: boolean }) | null {
+  const sel = window.getSelection()
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null
+  const range = sel.getRangeAt(0)
+  const blockOf = (node: Node): HTMLElement | null => {
+    const el = node instanceof HTMLElement ? node : node.parentElement
+    return el?.closest('[data-element-id]') ?? null
+  }
+  const startBlock = blockOf(range.startContainer)
+  const endBlock = blockOf(range.endContainer)
+  if (!startBlock || !endBlock) return null
+  return {
+    startId: startBlock.dataset.elementId!,
+    startOffset: offsetIn(startBlock, range.startContainer, range.startOffset),
+    endId: endBlock.dataset.elementId!,
+    endOffset: offsetIn(endBlock, range.endContainer, range.endOffset),
+    crossBlock: startBlock !== endBlock,
+  }
+}
+
 export function setCaretOffset(el: HTMLElement, offset: number): void {
   const sel = window.getSelection()
   if (!sel) return

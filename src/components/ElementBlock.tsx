@@ -26,7 +26,9 @@ import {
 import { useScriptStore } from '../stores/scriptStore'
 import { useUiStore } from '../stores/uiStore'
 import { useCollabStore } from '../stores/collabStore'
-import { getCaretOffset, setCaretOffset, hasSelection } from './caret'
+import { getCaretOffset, setCaretOffset, hasSelection, getBlockSelection } from './caret'
+import { pastePlainText } from './clipboard'
+import { parseFountainBody } from '../engine/fountain'
 
 const PLACEHOLDERS: Partial<Record<ScriptElement['type'], string>> = {
   scene_heading: 'INT. LOCATION - DAY',
@@ -170,6 +172,39 @@ export const ElementBlock = memo(function ElementBlock({ element }: { element: S
     if (normal !== element.text) updateElementText(element.id, normal)
   }
 
+  /**
+   * Paste, single-block case (cross-block pastes are captured by the
+   * editor container before this fires). Multi-line text runs through the
+   * Fountain parser and splits into typed elements — never one action blob;
+   * single lines insert literally. Always plain text: the browser's default
+   * would inject foreign HTML into the contentEditable.
+   */
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const text = e.clipboardData.getData('text/plain').replace(/\r\n?/g, '\n')
+    if (text === '') return
+    const div = ref.current!
+    const sel = getBlockSelection()
+    // A selection inside this block is replaced by the paste, atomically.
+    if (sel && !sel.crossBlock && sel.startId === element.id) {
+      const [from, to] =
+        sel.startOffset <= sel.endOffset
+          ? [sel.startOffset, sel.endOffset]
+          : [sel.endOffset, sel.startOffset]
+      if (text.includes('\n')) {
+        const parts = parseFountainBody(text.split('\n'))
+        const target = useScriptStore.getState().pasteElements(element.id, from, parts, to)
+        if (target) requestCaret(target.focusId, target.offset)
+      } else {
+        checkpoint()
+        updateElementText(element.id, element.text.slice(0, from) + text + element.text.slice(to))
+        requestCaret(element.id, from + text.length)
+      }
+      return
+    }
+    pastePlainText(element.id, getCaretOffset(div), text)
+  }
+
   // Re-renders only when the peers on THIS element change (shallow compare).
   const peers = useCollabStore(
     useShallow((s) => s.peers.filter((p) => p.elementId === element.id && p.userId !== s.selfId)),
@@ -209,6 +244,7 @@ export const ElementBlock = memo(function ElementBlock({ element }: { element: S
         data-placeholder={active ? PLACEHOLDERS[element.type] ?? '' : ''}
         onKeyDown={handleKeyDown}
         onInput={handleInput}
+        onPaste={handlePaste}
         onFocus={() => setActiveElement(element.id)}
         onBlur={handleBlur}
       />

@@ -16,15 +16,92 @@
  */
 import { memo, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useUiStore } from '../stores/uiStore'
+import { useScriptStore } from '../stores/scriptStore'
 import { ELEMENT_LAYOUT } from '../engine/pagination'
 import { usePagination, type PaginationValue } from './PaginationContext'
 import { ElementBlock } from './ElementBlock'
+import { getBlockSelection } from './caret'
+import { deleteSelectedRange, rangeToClipboardText, pastePlainText } from './clipboard'
 import type { ElementType, Page } from '../types'
 
 export function ScriptEditor() {
   const { pages, getElement } = usePagination()
+
+  /*
+   * Cross-block selection support. contentEditable owns editing INSIDE one
+   * block, but a selection spanning blocks lives in the parent DOM and the
+   * browser's default handling would corrupt the element structure. These
+   * capture-phase handlers intercept only when the selection spans blocks
+   * (single-block editing stays native / in ElementBlock) and re-express
+   * the edit as store operations.
+   */
+  const crossKeyDown = (e: React.KeyboardEvent) => {
+    const sel = getBlockSelection()
+    if (!sel?.crossBlock) return
+    const mod = e.ctrlKey || e.metaKey
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault()
+      e.stopPropagation()
+      deleteSelectedRange(sel)
+    } else if (e.key === 'Enter' && !mod) {
+      // Enter over a spanning selection deletes it; the caret lands at the
+      // join and the next Enter splits normally.
+      e.preventDefault()
+      e.stopPropagation()
+      deleteSelectedRange(sel)
+    } else if (!mod && !e.altKey && e.key.length === 1) {
+      // Typing over a spanning selection: replace it with the character.
+      e.preventDefault()
+      e.stopPropagation()
+      const res = deleteSelectedRange(sel)
+      if (res) {
+        const store = useScriptStore.getState()
+        const el = store.script.elements.find((x) => x.id === res.focusId)
+        if (el) {
+          store.updateElementText(
+            el.id,
+            el.text.slice(0, res.offset) + e.key + el.text.slice(res.offset),
+          )
+          useUiStore.getState().requestCaret(el.id, res.offset + 1)
+        }
+      }
+    }
+  }
+
+  const crossCopy = (e: React.ClipboardEvent) => {
+    const sel = getBlockSelection()
+    if (!sel?.crossBlock) return
+    e.preventDefault()
+    // Fountain serialization so element types survive the round trip.
+    e.clipboardData.setData('text/plain', rangeToClipboardText(sel))
+  }
+
+  const crossCut = (e: React.ClipboardEvent) => {
+    const sel = getBlockSelection()
+    if (!sel?.crossBlock) return
+    e.preventDefault()
+    e.clipboardData.setData('text/plain', rangeToClipboardText(sel))
+    deleteSelectedRange(sel)
+  }
+
+  const crossPaste = (e: React.ClipboardEvent) => {
+    const sel = getBlockSelection()
+    if (!sel?.crossBlock) return
+    e.preventDefault()
+    e.stopPropagation()
+    const text = e.clipboardData.getData('text/plain')
+    const res = deleteSelectedRange(sel)
+    if (res && text) pastePlainText(res.focusId, res.offset, text)
+  }
+
   return (
-    <div className="flex flex-col items-center gap-6 py-8">
+    <div
+      className="flex flex-col items-center gap-6 py-8"
+      onKeyDownCapture={crossKeyDown}
+      onCopyCapture={crossCopy}
+      onCutCapture={crossCut}
+      onPasteCapture={crossPaste}
+    >
       {pages.map((page) => (
         <EditorPage key={page.number} page={page} getElement={getElement} />
       ))}

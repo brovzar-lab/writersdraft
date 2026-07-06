@@ -215,6 +215,39 @@ export interface ScriptState {
   removeElement: (id: string) => void
   moveScene: (fromHeadingId: string, toHeadingId: string) => void
 
+  // Clipboard & cross-block editing (input fidelity). Each mutation is ONE
+  // history entry, so one Ctrl+Z reverses a whole paste or range delete.
+  /**
+   * Insert typed elements at a caret position: the target element splits at
+   * `caret`, `parts` land between the halves (empty halves are dropped).
+   * `replaceTo` extends the split into a replacement: target text between
+   * caret and replaceTo is consumed. Returns where the caret belongs after.
+   */
+  pasteElements: (
+    targetId: string,
+    caret: number,
+    parts: ScriptElement[],
+    replaceTo?: number,
+  ) => { focusId: string; offset: number } | null
+  /**
+   * Delete everything between two carets, possibly in different elements:
+   * the start element keeps its head plus the end element's tail; elements
+   * in between are removed. Start/end order is normalised.
+   */
+  deleteRange: (
+    startId: string,
+    startOffset: number,
+    endId: string,
+    endOffset: number,
+  ) => { focusId: string; offset: number } | null
+  /** Non-mutating: the elements covered by a range, texts sliced to it. */
+  extractRange: (
+    startId: string,
+    startOffset: number,
+    endId: string,
+    endOffset: number,
+  ) => ScriptElement[]
+
   undo: () => void
   redo: () => void
   checkpoint: () => void
@@ -419,6 +452,78 @@ export const useScriptStore = create<ScriptState>((set, get) => {
         // A script always has at least one element.
         return { elements: elements.length ? elements : [makeElement('scene_heading')] }
       }),
+
+    pasteElements: (targetId, caret, parts, replaceTo) => {
+      if (parts.length === 0) return null
+      const s = get().script
+      const i = s.elements.findIndex((e) => e.id === targetId)
+      if (i < 0) return null
+      const target = s.elements[i]
+      const head = target.text.slice(0, caret)
+      const tail = target.text.slice(Math.max(replaceTo ?? caret, caret))
+      const insert: ScriptElement[] = []
+      if (head !== '') insert.push({ ...target, text: head })
+      insert.push(...parts)
+      if (tail !== '') insert.push({ ...makeElement(target.type, tail), tags: target.tags })
+      withHistory((sc) => {
+        const elements = [...sc.elements]
+        elements.splice(i, 1, ...insert)
+        return { elements }
+      })
+      const last = parts[parts.length - 1]
+      return { focusId: last.id, offset: last.text.length }
+    },
+
+    deleteRange: (startId, startOffset, endId, endOffset) => {
+      const s = get().script
+      let si = s.elements.findIndex((e) => e.id === startId)
+      let ei = s.elements.findIndex((e) => e.id === endId)
+      if (si < 0 || ei < 0) return null
+      let so = startOffset
+      let eo = endOffset
+      if (si > ei || (si === ei && so > eo)) {
+        ;[si, ei] = [ei, si]
+        ;[so, eo] = [eo, so]
+      }
+      const start = s.elements[si]
+      const end = s.elements[ei]
+      // When the range begins at the very start of the start element, that
+      // element is consumed whole — the survivor is the end element's tail
+      // and keeps the END element's type/identity (a cut cue must not leave
+      // a character-typed shell holding leftover dialogue).
+      const merged =
+        si === ei
+          ? { ...start, text: start.text.slice(0, so) + start.text.slice(eo) }
+          : so === 0
+            ? { ...end, text: end.text.slice(eo) }
+            : { ...start, text: start.text.slice(0, so) + end.text.slice(eo) }
+      withHistory((sc) => {
+        const elements = [...sc.elements]
+        elements.splice(si, ei - si + 1, merged)
+        return { elements: elements.length ? elements : [makeElement('scene_heading')] }
+      })
+      return { focusId: merged.id, offset: so }
+    },
+
+    extractRange: (startId, startOffset, endId, endOffset) => {
+      const s = get().script
+      let si = s.elements.findIndex((e) => e.id === startId)
+      let ei = s.elements.findIndex((e) => e.id === endId)
+      if (si < 0 || ei < 0) return []
+      let so = startOffset
+      let eo = endOffset
+      if (si > ei || (si === ei && so > eo)) {
+        ;[si, ei] = [ei, si]
+        ;[so, eo] = [eo, so]
+      }
+      if (si === ei) {
+        return [{ ...s.elements[si], text: s.elements[si].text.slice(so, eo) }]
+      }
+      const out: ScriptElement[] = [{ ...s.elements[si], text: s.elements[si].text.slice(so) }]
+      for (let k = si + 1; k < ei; k++) out.push({ ...s.elements[k] })
+      out.push({ ...s.elements[ei], text: s.elements[ei].text.slice(0, eo) })
+      return out
+    },
 
     moveScene: (fromHeadingId, toHeadingId) => {
       if (fromHeadingId === toHeadingId) return
