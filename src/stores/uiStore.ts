@@ -47,6 +47,9 @@ export interface UiState {
   /** Ctrl+K command palette. */
   paletteOpen: boolean
   setPaletteOpen: (open: boolean) => void
+  /** Scene navigator as an overlay drawer on narrow viewports. */
+  drawerOpen: boolean
+  setDrawerOpen: (open: boolean) => void
 
   startSprint: (minutes: number, targetWords: number, currentWords: number) => void
   endSprint: () => void
@@ -79,6 +82,8 @@ export const useUiStore = create<UiState>((set) => ({
   dismissGuestBanner: () => set({ guestBannerDismissed: true }),
   paletteOpen: false,
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
+  drawerOpen: false,
+  setDrawerOpen: (drawerOpen) => set({ drawerOpen }),
 
   startSprint: (minutes, targetWords, currentWords) =>
     set({

@@ -29,8 +29,29 @@ import {
 } from "./clipboard";
 import type { ElementType, Page } from "../types";
 
+/** US Letter page width (8.5in at 96dpi) plus breathing room. */
+const PAGE_PX = 816;
+
 export function ScriptEditor() {
   const { pages, getElement } = usePagination();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
+
+  // Narrow viewports (tablet reading): scale the page to fit rather than
+  // forcing horizontal scroll. `zoom` participates in layout, so spacing,
+  // virtualization and the caret all keep working.
+  useEffect(() => {
+    const el = containerRef.current;
+    const parent = el?.parentElement;
+    if (!el || !parent) return;
+    // Measure the (un-zoomed) scroll parent: measuring the zoomed container
+    // itself reports coordinates in its own scaled space — a feedback loop.
+    const ro = new ResizeObserver(() => {
+      setZoom(Math.min(1, (parent.clientWidth - 24) / PAGE_PX));
+    });
+    ro.observe(parent);
+    return () => ro.disconnect();
+  }, []);
 
   /*
    * Cross-block selection support. contentEditable owns editing INSIDE one
@@ -101,7 +122,9 @@ export function ScriptEditor() {
 
   return (
     <div
+      ref={containerRef}
       className="flex flex-col items-center gap-6 py-8"
+      style={zoom < 1 ? ({ zoom } as React.CSSProperties) : undefined}
       onKeyDownCapture={crossKeyDown}
       onCopyCapture={crossCopy}
       onCutCapture={crossCut}

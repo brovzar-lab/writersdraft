@@ -23,13 +23,13 @@
   --page: #fffdf8;
   /* ink */
   --ink: #211d16;
-  --ink-soft: #6e6557;
-  --ink-faint: #a49a87;
+  --ink-soft: #5a5145;
+  --ink-faint: #6e6557;
   /* hairlines */
   --line: #ded6c4;
   --line-strong: #c4b99f;
   /* brass accent */
-  --brass: #9a6b1f;
+  --brass: #855a14;
   --brass-strong: #7c5517;
   --brass-soft: #f1e3c2;
   --on-brass: #fffdf8;
@@ -58,7 +58,7 @@
   --page: #272219;
   --ink: #ece4d3;
   --ink-soft: #b0a691;
-  --ink-faint: #7d7462;
+  --ink-faint: #948a75;
   --line: #383226;
   --line-strong: #4c4433;
   --brass: #d9a83f;

@@ -40,6 +40,35 @@ const LS_KEY = 'writersdraft:script'
 /** Record an automatic version snapshot at most this often. */
 const AUTOSNAP_INTERVAL_MS = 5 * 60_000
 
+/** Scene navigator as a modal drawer on viewports too narrow for the sidebar. */
+function NavigatorDrawer() {
+  const open = useUiStore((s) => s.drawerOpen)
+  const setOpen = useUiStore((s) => s.setDrawerOpen)
+  if (!open) return null
+  return (
+    <div className="no-print fixed inset-0 z-40 lg:hidden" role="dialog" aria-label="Scenes">
+      <div className="absolute inset-0 bg-ink/30" onClick={() => setOpen(false)} />
+      <aside className="absolute inset-y-0 left-0 w-72 overflow-y-auto border-r border-line bg-desk font-ui shadow-2xl">
+        <div className="flex items-center justify-between border-b border-line px-3 py-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
+            Scenes
+          </span>
+          <button
+            onClick={() => setOpen(false)}
+            aria-label="Close scene navigator"
+            className="rounded px-1.5 text-ink-faint hover:text-ink"
+          >
+            ×
+          </button>
+        </div>
+        <div onClick={() => setOpen(false)}>
+          <SceneNavigator />
+        </div>
+      </aside>
+    </div>
+  )
+}
+
 /**
  * Honest account state: while the session is anonymous (or cloud sync is
  * unreachable) the draft lives only in this browser. Recovery must never
@@ -531,10 +560,11 @@ export default function App() {
         {!focusMode && booted && <GuestBanner user={user} syncState={syncState} />}
         <div className="flex min-h-0 flex-1">
           {!focusMode && sidebarOpen && view === 'editor' && (
-            <aside className="no-print w-64 shrink-0 overflow-y-auto border-r border-line bg-desk font-ui">
+            <aside className="no-print hidden w-64 shrink-0 overflow-y-auto border-r border-line bg-desk font-ui lg:block">
               <SceneNavigator />
             </aside>
           )}
+          {!focusMode && view === 'editor' && <NavigatorDrawer />}
           <main className="min-w-0 flex-1 overflow-y-auto">
             {!booted ? (
               <div className="flex h-full items-center justify-center text-sm text-gray-400">

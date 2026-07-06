@@ -141,6 +141,18 @@ export const IconAlert = (p: P) => (
     <path d="M12 9v4M12 17h.01" />
   </Base>
 );
+export const IconMenu = (p: P) => (
+  <Base {...p}>
+    <path d="M4 6h16M4 12h16M4 18h16" />
+  </Base>
+);
+export const IconDots = (p: P) => (
+  <Base {...p}>
+    <circle cx="5" cy="12" r="1" />
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="19" cy="12" r="1" />
+  </Base>
+);
 export const IconFilm = (p: P) => (
   <Base {...p}>
     <rect x="3" y="3" width="18" height="18" rx="2" />

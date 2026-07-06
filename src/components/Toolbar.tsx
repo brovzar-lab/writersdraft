@@ -21,6 +21,8 @@ import {
   IconZap,
   IconChevronDown,
   IconFilm,
+  IconMenu,
+  IconDots,
 } from "./icons";
 
 function download(filename: string, text: string) {
@@ -83,14 +85,27 @@ export function Toolbar({
 
   return (
     <header className="no-print flex items-center gap-2 border-b border-line bg-desk-raised px-3 py-1.5 font-ui text-sm text-ink">
-      <span className="mr-1 flex items-center gap-1.5 select-none">
+      {view === "editor" && (
+        <Button
+          iconOnly
+          tip="Scenes"
+          className="lg:hidden"
+          onClick={() => useUiStore.getState().setDrawerOpen(true)}
+        >
+          <IconMenu />
+        </Button>
+      )}
+      <span className="mr-1 hidden items-center gap-1.5 select-none sm:flex">
         <IconFilm size={16} className="text-brass" />
         <span className="text-[13px] font-semibold tracking-tight">
           Writers<span className="text-brass">Draft</span>
         </span>
       </span>
 
-      <nav aria-label="Views" className="flex rounded-lg bg-desk-sunken p-0.5">
+      <nav
+        aria-label="Views"
+        className="flex max-w-[42vw] overflow-x-auto rounded-lg bg-desk-sunken p-0.5 md:max-w-none"
+      >
         {VIEWS.map((v) => (
           <button
             key={v.id}
@@ -109,7 +124,7 @@ export function Toolbar({
 
       {view === "editor" && (
         <select
-          className="rounded-md border border-line bg-transparent px-1.5 py-1 text-xs text-ink-soft hover:border-line-strong"
+          className="hidden rounded-md border border-line bg-transparent px-1.5 py-1 text-xs text-ink-soft hover:border-line-strong sm:block"
           value={activeType ?? "action"}
           aria-label="Element type"
           onChange={(e) => {
@@ -143,7 +158,7 @@ export function Toolbar({
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">
-        <span className="px-1 text-[11px] text-ink-faint">{syncState}</span>
+        <span className="hidden px-1 text-[11px] text-ink-faint sm:inline">{syncState}</span>
 
         {locked ? (
           <>
@@ -208,7 +223,7 @@ export function Toolbar({
         </Menu>
 
         <label
-          className="tip inline-flex cursor-pointer select-none items-center gap-1.5 rounded-md border border-line px-2 py-1 text-xs font-medium text-ink-soft transition-colors hover:border-line-strong hover:bg-desk-sunken/60 hover:text-ink"
+          className="tip hidden cursor-pointer select-none items-center gap-1.5 rounded-md border border-line px-2 py-1 text-xs font-medium text-ink-soft transition-colors hover:border-line-strong hover:bg-desk-sunken/60 hover:text-ink md:inline-flex"
           data-tip="Import a .fdx or .fountain file"
         >
           <IconUpload /> Import
@@ -248,21 +263,41 @@ export function Toolbar({
           iconOnly
           variant={notesOpen ? "toggle-on" : "ghost"}
           tip="Notes & tags"
+          className="hidden md:inline-flex"
           onClick={toggleNotes}
         >
           <IconNote />
         </Button>
-        <Button iconOnly tip="Toggle dark mode" onClick={toggleDarkMode}>
+        <Button
+          iconOnly
+          tip="Toggle dark mode"
+          className="hidden md:inline-flex"
+          onClick={toggleDarkMode}
+        >
           {darkMode ? <IconSun /> : <IconMoon />}
         </Button>
         <Button
           iconOnly
           tip="Focus mode (Esc to exit)"
+          className="hidden md:inline-flex"
           onClick={toggleFocusMode}
         >
           <IconFocus />
         </Button>
         <SprintButton />
+        <Menu
+          trigger={() => (
+            <Button iconOnly tip="More" className="md:hidden">
+              <IconDots />
+            </Button>
+          )}
+        >
+          <MenuItem onClick={toggleNotes}>Notes & tags</MenuItem>
+          <MenuItem onClick={toggleDarkMode}>
+            {darkMode ? "Light mode" : "Dark mode"}
+          </MenuItem>
+          <MenuItem onClick={toggleFocusMode}>Focus mode</MenuItem>
+        </Menu>
         <AccountMenu user={user} onAuthChanged={onAuthChanged} />
       </div>
     </header>
@@ -275,6 +310,7 @@ function SprintButton() {
   if (sprint) return null;
   return (
     <Button
+      className="hidden md:inline-flex"
       tip="15-minute writing sprint, 300-word goal. Enters focus mode."
       onClick={() => {
         const words = useScriptStore
