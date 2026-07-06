@@ -1,28 +1,45 @@
 /** Top chrome: view switcher, element type selector, undo/redo, production tools. */
-import { useScriptStore } from '../stores/scriptStore'
-import { useUiStore, type AppView } from '../stores/uiStore'
-import { ELEMENT_LABELS, ELEMENT_TYPES, type ElementType } from '../types'
-import { exportFountain, importFountain } from '../engine/fountain'
-import { exportFdx, importFdx } from '../engine/fdx'
-import { AccountMenu, type AccountUser } from './AccountMenu'
+import { useScriptStore } from "../stores/scriptStore";
+import { useUiStore, type AppView } from "../stores/uiStore";
+import { ELEMENT_LABELS, ELEMENT_TYPES, type ElementType } from "../types";
+import { exportFountain, importFountain } from "../engine/fountain";
+import { exportFdx, importFdx } from "../engine/fdx";
+import { AccountMenu, type AccountUser } from "./AccountMenu";
+import { Button, Menu, MenuItem, toast } from "./ui";
+import {
+  IconUndo,
+  IconRedo,
+  IconLock,
+  IconUnlock,
+  IconDownload,
+  IconUpload,
+  IconPrinter,
+  IconNote,
+  IconMoon,
+  IconSun,
+  IconFocus,
+  IconZap,
+  IconChevronDown,
+  IconFilm,
+} from "./icons";
 
 function download(filename: string, text: string) {
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }))
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(a.href)
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 const VIEWS: Array<{ id: AppView; label: string }> = [
-  { id: 'editor', label: 'Script' },
-  { id: 'bible', label: 'Story Bible' },
-  { id: 'beatboard', label: 'Beat Board' },
-  { id: 'analytics', label: 'Analytics' },
-  { id: 'history', label: 'History' },
-  { id: 'titlepage', label: 'Title Page' },
-  { id: 'library', label: 'Library' },
-]
+  { id: "editor", label: "Script" },
+  { id: "bible", label: "Story Bible" },
+  { id: "beatboard", label: "Beat Board" },
+  { id: "analytics", label: "Analytics" },
+  { id: "history", label: "History" },
+  { id: "titlepage", label: "Title Page" },
+  { id: "library", label: "Library" },
+];
 
 export function Toolbar({
   syncState,
@@ -30,55 +47,59 @@ export function Toolbar({
   onAuthChanged,
   onPrint,
 }: {
-  syncState: string
-  user: AccountUser | null
-  onAuthChanged: () => void
-  onPrint: () => void
+  syncState: string;
+  user: AccountUser | null;
+  onAuthChanged: () => void;
+  onPrint: () => void;
 }) {
   // Narrow selectors: the toolbar must not re-render on every keystroke.
-  const locked = useScriptStore((s) => s.script.locked)
-  const revisionColor = useScriptStore((s) => s.script.revisionColor)
-  const undo = useScriptStore((s) => s.undo)
-  const redo = useScriptStore((s) => s.redo)
-  const setElementType = useScriptStore((s) => s.setElementType)
-  const lockScript = useScriptStore((s) => s.lockScript)
-  const unlockScript = useScriptStore((s) => s.unlockScript)
-  const bumpRevision = useScriptStore((s) => s.bumpRevision)
-  const loadScript = useScriptStore((s) => s.loadScript)
-  const checkpoint = useScriptStore((s) => s.checkpoint)
-  const canUndo = useScriptStore((s) => s.past.length > 0)
-  const canRedo = useScriptStore((s) => s.future.length > 0)
-  const view = useUiStore((s) => s.view)
-  const setView = useUiStore((s) => s.setView)
-  const toggleFocusMode = useUiStore((s) => s.toggleFocusMode)
-  const toggleDarkMode = useUiStore((s) => s.toggleDarkMode)
-  const darkMode = useUiStore((s) => s.darkMode)
-  const toggleNotes = useUiStore((s) => s.toggleNotes)
-  const notesOpen = useUiStore((s) => s.notesOpen)
-  const activeElementId = useUiStore((s) => s.activeElementId)
+  const locked = useScriptStore((s) => s.script.locked);
+  const revisionColor = useScriptStore((s) => s.script.revisionColor);
+  const undo = useScriptStore((s) => s.undo);
+  const redo = useScriptStore((s) => s.redo);
+  const setElementType = useScriptStore((s) => s.setElementType);
+  const lockScript = useScriptStore((s) => s.lockScript);
+  const unlockScript = useScriptStore((s) => s.unlockScript);
+  const bumpRevision = useScriptStore((s) => s.bumpRevision);
+  const loadScript = useScriptStore((s) => s.loadScript);
+  const checkpoint = useScriptStore((s) => s.checkpoint);
+  const canUndo = useScriptStore((s) => s.past.length > 0);
+  const canRedo = useScriptStore((s) => s.future.length > 0);
+  const view = useUiStore((s) => s.view);
+  const setView = useUiStore((s) => s.setView);
+  const toggleFocusMode = useUiStore((s) => s.toggleFocusMode);
+  const toggleDarkMode = useUiStore((s) => s.toggleDarkMode);
+  const darkMode = useUiStore((s) => s.darkMode);
+  const toggleNotes = useUiStore((s) => s.toggleNotes);
+  const notesOpen = useUiStore((s) => s.notesOpen);
+  const activeElementId = useUiStore((s) => s.activeElementId);
 
-  const activeId = useScriptStore((s) =>
-    s.script.elements.find((e) => e.id === activeElementId)?.id ?? null,
-  )
+  const activeId = useScriptStore(
+    (s) => s.script.elements.find((e) => e.id === activeElementId)?.id ?? null,
+  );
   const activeType = useScriptStore(
     (s) => s.script.elements.find((e) => e.id === activeElementId)?.type,
-  )
+  );
 
   return (
-    <header className="no-print flex items-center gap-2 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-sm">
-      <span className="font-semibold text-gray-800 dark:text-gray-100 mr-2">
-        Writers<span className="text-blue-500">Draft</span>
+    <header className="no-print flex items-center gap-2 border-b border-line bg-desk-raised px-3 py-1.5 font-ui text-sm text-ink">
+      <span className="mr-1 flex items-center gap-1.5 select-none">
+        <IconFilm size={16} className="text-brass" />
+        <span className="text-[13px] font-semibold tracking-tight">
+          Writers<span className="text-brass">Draft</span>
+        </span>
       </span>
 
-      <nav className="flex rounded bg-gray-100 dark:bg-slate-700 p-0.5">
+      <nav aria-label="Views" className="flex rounded-lg bg-desk-sunken p-0.5">
         {VIEWS.map((v) => (
           <button
             key={v.id}
             onClick={() => setView(v.id)}
-            className={`rounded px-2 py-0.5 text-xs ${
+            aria-current={view === v.id ? "page" : undefined}
+            className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors ${
               view === v.id
-                ? 'bg-white dark:bg-slate-900 shadow text-gray-900 dark:text-gray-100'
-                : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+                ? "bg-desk-raised text-ink shadow-sm"
+                : "text-ink-faint hover:text-ink"
             }`}
           >
             {v.label}
@@ -86,14 +107,15 @@ export function Toolbar({
         ))}
       </nav>
 
-      {view === 'editor' && (
+      {view === "editor" && (
         <select
-          className="rounded border border-gray-200 dark:border-slate-600 bg-transparent px-1.5 py-0.5 text-xs"
-          value={activeType ?? 'action'}
+          className="rounded-md border border-line bg-transparent px-1.5 py-1 text-xs text-ink-soft hover:border-line-strong"
+          value={activeType ?? "action"}
+          aria-label="Element type"
           onChange={(e) => {
             if (activeId) {
-              checkpoint()
-              setElementType(activeId, e.target.value as ElementType)
+              checkpoint();
+              setElementType(activeId, e.target.value as ElementType);
             }
           }}
           title="Element type (Tab/Enter also switch types)"
@@ -107,135 +129,165 @@ export function Toolbar({
       )}
 
       <div className="flex gap-1">
-        <button onClick={undo} disabled={!canUndo} className="tb-btn rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600 disabled:opacity-30" title="Undo (Ctrl+Z)">
-          ↺
-        </button>
-        <button onClick={redo} disabled={!canRedo} className="rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600 disabled:opacity-30" title="Redo (Ctrl+Shift+Z)">
-          ↻
-        </button>
+        <Button iconOnly tip="Undo (Ctrl+Z)" onClick={undo} disabled={!canUndo}>
+          <IconUndo />
+        </Button>
+        <Button
+          iconOnly
+          tip="Redo (Ctrl+Shift+Z)"
+          onClick={redo}
+          disabled={!canRedo}
+        >
+          <IconRedo />
+        </Button>
       </div>
 
-      <div className="ml-auto flex items-center gap-2">
-        <span className="text-xs text-gray-400">{syncState}</span>
+      <div className="ml-auto flex items-center gap-1.5">
+        <span className="px-1 text-[11px] text-ink-faint">{syncState}</span>
+
         {locked ? (
           <>
             <span
-              className="rounded px-1.5 py-0.5 text-xs capitalize border border-gray-300 dark:border-slate-600"
+              className="rounded-md border border-line px-1.5 py-1 text-[11px] capitalize text-ink-soft"
               title="Current revision color"
             >
               {revisionColor} rev.
             </span>
-            <button onClick={() => bumpRevision()} className="rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600" title="Advance revision color">
+            <Button tip="Advance revision color" onClick={() => bumpRevision()}>
               Next rev
-            </button>
-            <button onClick={unlockScript} className="rounded px-1.5 py-0.5 text-xs border border-amber-300 text-amber-600" title="Unlock script">
-              🔓 Unlock
-            </button>
+            </Button>
+            <Button
+              variant="toggle-on"
+              tip="Unlock script"
+              onClick={unlockScript}
+            >
+              <IconUnlock /> Unlock
+            </Button>
           </>
         ) : (
-          <button
+          <Button
+            tip="Lock pages & number scenes for production"
             onClick={() => {
-              lockScript()
+              lockScript();
               // A production lock is a milestone — always snapshot it.
-              useScriptStore.getState().recordSnapshot('Locked for production')
+              useScriptStore.getState().recordSnapshot("Locked for production");
             }}
-            className="rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600"
-            title="Lock pages & number scenes for production"
           >
-            🔒 Lock
-          </button>
+            <IconLock /> Lock
+          </Button>
         )}
-        <details className="relative">
-          <summary className="cursor-pointer list-none rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600 select-none" title="Export the script">
-            Export ▾
-          </summary>
-          <div className="absolute right-0 z-20 mt-1 flex w-40 flex-col rounded border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-lg">
-            <button
-              onClick={(e) => {
-                const s = useScriptStore.getState().script
-                download(`${s.titlePage.title || 'script'}.fdx`, exportFdx(s))
-                e.currentTarget.closest('details')?.removeAttribute('open')
-              }}
-              className="px-2 py-1.5 text-left text-xs hover:bg-gray-100 dark:hover:bg-slate-700"
-              title="Final Draft document (industry standard)"
-            >
-              Final Draft (.fdx)
-            </button>
-            <button
-              onClick={(e) => {
-                const s = useScriptStore.getState().script
-                download(`${s.titlePage.title || 'script'}.fountain`, exportFountain(s))
-                e.currentTarget.closest('details')?.removeAttribute('open')
-              }}
-              className="px-2 py-1.5 text-left text-xs hover:bg-gray-100 dark:hover:bg-slate-700"
-              title="Plain-text screenplay format"
-            >
-              Fountain (.fountain)
-            </button>
-          </div>
-        </details>
-        <label className="cursor-pointer rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600" title="Import a .fdx or .fountain file">
-          Import
+
+        <Menu
+          trigger={() => (
+            <Button tip="Export the script">
+              <IconDownload /> Export <IconChevronDown size={12} />
+            </Button>
+          )}
+        >
+          <MenuItem
+            tip="Final Draft document (industry standard)"
+            onClick={() => {
+              const s = useScriptStore.getState().script;
+              download(`${s.titlePage.title || "script"}.fdx`, exportFdx(s));
+            }}
+          >
+            Final Draft (.fdx)
+          </MenuItem>
+          <MenuItem
+            tip="Plain-text screenplay format"
+            onClick={() => {
+              const s = useScriptStore.getState().script;
+              download(
+                `${s.titlePage.title || "script"}.fountain`,
+                exportFountain(s),
+              );
+            }}
+          >
+            Fountain (.fountain)
+          </MenuItem>
+        </Menu>
+
+        <label
+          className="tip inline-flex cursor-pointer select-none items-center gap-1.5 rounded-md border border-line px-2 py-1 text-xs font-medium text-ink-soft transition-colors hover:border-line-strong hover:bg-desk-sunken/60 hover:text-ink"
+          data-tip="Import a .fdx or .fountain file"
+        >
+          <IconUpload /> Import
           <input
             type="file"
             accept=".fdx,.fountain,.txt"
             className="hidden"
             onChange={async (e) => {
-              const f = e.target.files?.[0]
+              const f = e.target.files?.[0];
               if (f) {
                 try {
-                  const text = await f.text()
-                  const imported = f.name.toLowerCase().endsWith('.fdx')
+                  const text = await f.text();
+                  const imported = f.name.toLowerCase().endsWith(".fdx")
                     ? importFdx(text)
-                    : importFountain(text)
-                  loadScript(imported)
-                  useScriptStore.getState().loadTimeline([])
+                    : importFountain(text);
+                  loadScript(imported);
+                  useScriptStore.getState().loadTimeline([]);
                   // Imports must persist even before the first edit.
-                  useScriptStore.getState().markDirty()
+                  useScriptStore.getState().markDirty();
+                  toast(`Imported ${f.name}`, "success");
                 } catch (err) {
-                  alert(`Could not import ${f.name}: ${err instanceof Error ? err.message : err}`)
+                  toast(
+                    `Could not import ${f.name}: ${err instanceof Error ? err.message : err}`,
+                    "error",
+                  );
                 }
               }
-              e.target.value = ''
+              e.target.value = "";
             }}
           />
         </label>
-        <button onClick={onPrint} className="rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600" title="Print / Save as PDF (Ctrl+P)">
-          Print
-        </button>
-        <button onClick={toggleNotes} className={`rounded px-1.5 py-0.5 text-xs border ${notesOpen ? 'border-blue-400 text-blue-500' : 'border-gray-200 dark:border-slate-600'}`} title="Notes & tags">
-          🗒
-        </button>
-        <button onClick={toggleDarkMode} className="rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600" title="Toggle dark mode">
-          {darkMode ? '☀️' : '🌙'}
-        </button>
-        <button onClick={toggleFocusMode} className="rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600" title="Focus mode (Esc to exit)">
-          ⛶ Focus
-        </button>
+
+        <Button iconOnly tip="Print / Save as PDF (Ctrl+P)" onClick={onPrint}>
+          <IconPrinter />
+        </Button>
+        <Button
+          iconOnly
+          variant={notesOpen ? "toggle-on" : "ghost"}
+          tip="Notes & tags"
+          onClick={toggleNotes}
+        >
+          <IconNote />
+        </Button>
+        <Button iconOnly tip="Toggle dark mode" onClick={toggleDarkMode}>
+          {darkMode ? <IconSun /> : <IconMoon />}
+        </Button>
+        <Button
+          iconOnly
+          tip="Focus mode (Esc to exit)"
+          onClick={toggleFocusMode}
+        >
+          <IconFocus />
+        </Button>
         <SprintButton />
         <AccountMenu user={user} onAuthChanged={onAuthChanged} />
       </div>
     </header>
-  )
+  );
 }
 
 function SprintButton() {
-  const sprint = useUiStore((s) => s.sprint)
-  const startSprint = useUiStore((s) => s.startSprint)
-  if (sprint) return null
+  const sprint = useUiStore((s) => s.sprint);
+  const startSprint = useUiStore((s) => s.startSprint);
+  if (sprint) return null;
   return (
-    <button
+    <Button
+      tip="15-minute writing sprint, 300-word goal. Enters focus mode."
       onClick={() => {
-        const words = useScriptStore.getState().script.elements.reduce(
-          (a, el) => a + (el.text.trim() ? el.text.trim().split(/\s+/).length : 0),
-          0,
-        )
-        startSprint(15, 300, words)
+        const words = useScriptStore
+          .getState()
+          .script.elements.reduce(
+            (a, el) =>
+              a + (el.text.trim() ? el.text.trim().split(/\s+/).length : 0),
+            0,
+          );
+        startSprint(15, 300, words);
       }}
-      className="rounded px-1.5 py-0.5 text-xs border border-green-300 text-green-600"
-      title="15-minute writing sprint, 300-word goal. Enters focus mode."
     >
-      ⚡ Sprint
-    </button>
-  )
+      <IconZap className="text-brass" /> Sprint
+    </Button>
+  );
 }

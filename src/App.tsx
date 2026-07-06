@@ -15,6 +15,7 @@ import { HistoryTimeline } from './components/HistoryTimeline'
 import { Library } from './components/Library'
 import { PaginationProvider } from './components/PaginationContext'
 import { PrintView } from './components/PrintView'
+import { Toaster } from './components/ui'
 import { useCollabStore } from './stores/collabStore'
 import {
   deleteScript as deleteLocalScript,
@@ -52,7 +53,7 @@ function GuestBanner({ user, syncState }: { user: AccountUser | null; syncState:
   return (
     <div
       data-testid="guest-banner"
-      className="no-print flex items-center gap-3 border-b border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 px-3 py-1.5 text-xs text-blue-900 dark:text-blue-100"
+      className="no-print flex items-center gap-3 border-b border-line bg-desk-sunken px-3 py-1.5 font-ui text-xs text-ink-soft"
     >
       <span className="flex-1">
         {offline
@@ -61,14 +62,14 @@ function GuestBanner({ user, syncState }: { user: AccountUser | null; syncState:
       </span>
       <button
         onClick={() => setAccountMenuOpen(true)}
-        className="rounded bg-blue-500 px-2 py-1 text-white hover:bg-blue-600"
+        className="rounded-md bg-brass px-2 py-1 font-medium text-on-brass hover:bg-brass-strong"
       >
         Create account
       </button>
       <button
         onClick={dismissGuestBanner}
         aria-label="Dismiss"
-        className="rounded px-1.5 py-1 hover:bg-blue-100 dark:hover:bg-blue-900/60"
+        className="rounded-md px-1.5 py-1 text-ink-faint hover:bg-desk-raised hover:text-ink"
       >
         ×
       </button>
@@ -487,7 +488,7 @@ export default function App() {
     <PaginationProvider>
       {printing && <PrintView />}
       <div className={`app-root ${darkMode ? 'dark' : ''}`}>
-        <div className="flex h-screen flex-col bg-gray-100 dark:bg-slate-950 text-gray-900 dark:text-gray-100">
+        <div className="flex h-screen flex-col bg-desk font-ui text-ink">
         {!focusMode && (
           <Toolbar
             syncState={syncState}
@@ -497,7 +498,7 @@ export default function App() {
           />
         )}
         {pendingRemote && (
-          <div className="no-print flex items-center gap-3 border-b border-amber-300 bg-amber-50 dark:bg-amber-900/30 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
+          <div className="no-print flex items-center gap-3 border-b border-warn/40 bg-brass-soft px-3 py-2 font-ui text-sm text-ink">
             <span className="flex-1">
               A newer version of this script was saved from another session. Your unsaved local
               changes are safe — choose which version to keep. (Loading theirs keeps yours one
@@ -505,13 +506,13 @@ export default function App() {
             </span>
             <button
               onClick={() => resolveConflict('take-remote')}
-              className="rounded border border-amber-400 px-2 py-1 text-xs hover:bg-amber-100 dark:hover:bg-amber-900/60"
+              className="rounded-md border border-warn/50 px-2 py-1 text-xs text-ink-soft hover:bg-desk-sunken"
             >
               Load theirs
             </button>
             <button
               onClick={() => resolveConflict('keep-local')}
-              className="rounded bg-amber-500 px-2 py-1 text-xs text-white hover:bg-amber-600"
+              className="rounded-md bg-brass px-2 py-1 text-xs text-on-brass hover:bg-brass-strong"
             >
               Keep mine
             </button>
@@ -520,7 +521,7 @@ export default function App() {
         {!focusMode && booted && <GuestBanner user={user} syncState={syncState} />}
         <div className="flex min-h-0 flex-1">
           {!focusMode && sidebarOpen && view === 'editor' && (
-            <aside className="no-print w-64 shrink-0 overflow-y-auto border-r border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
+            <aside className="no-print w-64 shrink-0 overflow-y-auto border-r border-line bg-desk font-ui">
               <SceneNavigator />
             </aside>
           )}
@@ -550,6 +551,7 @@ export default function App() {
           </main>
           {!focusMode && notesOpen && view === 'editor' && <NotesPanel />}
         </div>
+        <Toaster />
         {!focusMode && <StatusBar />}
         </div>
       </div>

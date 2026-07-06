@@ -9,10 +9,10 @@
  * selects to a per-block boolean). A keystroke re-renders exactly the edited
  * block, not the script.
  */
-import { memo, useEffect, useRef } from 'react'
-import { useShallow } from 'zustand/react/shallow'
-import type { ScriptElement } from '../types'
-import { ELEMENT_LAYOUT } from '../engine/pagination'
+import { memo, useEffect, useRef } from "react";
+import { useShallow } from "zustand/react/shallow";
+import type { ScriptElement } from "../types";
+import { ELEMENT_LAYOUT } from "../engine/pagination";
 import {
   onEnter,
   onTab,
@@ -22,155 +22,167 @@ import {
   cycleType,
   UPPERCASE_TYPES,
   NEXT_ON_ENTER,
-} from '../engine/stateMachine'
-import { useScriptStore } from '../stores/scriptStore'
-import { useUiStore } from '../stores/uiStore'
-import { useCollabStore } from '../stores/collabStore'
-import { getCaretOffset, setCaretOffset, hasSelection, getBlockSelection } from './caret'
-import { pastePlainText } from './clipboard'
-import { parseFountainBody } from '../engine/fountain'
+} from "../engine/stateMachine";
+import { useScriptStore } from "../stores/scriptStore";
+import { useUiStore } from "../stores/uiStore";
+import { useCollabStore } from "../stores/collabStore";
+import {
+  getCaretOffset,
+  setCaretOffset,
+  hasSelection,
+  getBlockSelection,
+} from "./caret";
+import { pastePlainText } from "./clipboard";
+import { parseFountainBody } from "../engine/fountain";
 
-const PLACEHOLDERS: Partial<Record<ScriptElement['type'], string>> = {
-  scene_heading: 'INT. LOCATION - DAY',
-  character: 'CHARACTER NAME',
-  dialogue: 'Dialogue…',
-  parenthetical: '(beat)',
-  transition: 'CUT TO:',
-  action: 'Action…',
-}
+const PLACEHOLDERS: Partial<Record<ScriptElement["type"], string>> = {
+  scene_heading: "INT. LOCATION - DAY",
+  character: "CHARACTER NAME",
+  dialogue: "Dialogue…",
+  parenthetical: "(beat)",
+  transition: "CUT TO:",
+  action: "Action…",
+};
 
-export const ElementBlock = memo(function ElementBlock({ element }: { element: ScriptElement }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const updateElementText = useScriptStore((s) => s.updateElementText)
-  const setElementType = useScriptStore((s) => s.setElementType)
-  const insertElementAfter = useScriptStore((s) => s.insertElementAfter)
-  const splitElement = useScriptStore((s) => s.splitElement)
-  const mergeWithPrevious = useScriptStore((s) => s.mergeWithPrevious)
-  const checkpoint = useScriptStore((s) => s.checkpoint)
+export const ElementBlock = memo(function ElementBlock({
+  element,
+}: {
+  element: ScriptElement;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const updateElementText = useScriptStore((s) => s.updateElementText);
+  const setElementType = useScriptStore((s) => s.setElementType);
+  const insertElementAfter = useScriptStore((s) => s.insertElementAfter);
+  const splitElement = useScriptStore((s) => s.splitElement);
+  const mergeWithPrevious = useScriptStore((s) => s.mergeWithPrevious);
+  const checkpoint = useScriptStore((s) => s.checkpoint);
 
-  const active = useUiStore((s) => s.activeElementId === element.id)
-  const setActiveElement = useUiStore((s) => s.setActiveElement)
-  const requestCaret = useUiStore((s) => s.requestCaret)
-  const clearPendingCaret = useUiStore((s) => s.clearPendingCaret)
+  const active = useUiStore((s) => s.activeElementId === element.id);
+  const setActiveElement = useUiStore((s) => s.setActiveElement);
+  const requestCaret = useUiStore((s) => s.requestCaret);
+  const clearPendingCaret = useUiStore((s) => s.clearPendingCaret);
   // Non-null only when the caret handoff targets this block.
   const caretTarget = useUiStore((s) =>
     s.pendingCaret?.elementId === element.id ? s.pendingCaret : null,
-  )
+  );
 
   // Keep DOM text in sync with store (skip when it already matches — that is
   // the common case for self-originated edits and preserves the caret).
   useEffect(() => {
-    const div = ref.current
+    const div = ref.current;
     if (div && div.textContent !== element.text) {
-      div.textContent = element.text
+      div.textContent = element.text;
     }
-  }, [element.text])
+  }, [element.text]);
 
   // Programmatic caret handoff (after Enter/Tab/merge/navigation).
   useEffect(() => {
     if (caretTarget && ref.current) {
       if (caretTarget.center) {
-        ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
       }
-      setCaretOffset(ref.current, caretTarget.offset)
-      setActiveElement(element.id)
-      clearPendingCaret()
+      setCaretOffset(ref.current, caretTarget.offset);
+      setActiveElement(element.id);
+      clearPendingCaret();
     }
-  }, [caretTarget, element.id, setActiveElement, clearPendingCaret])
+  }, [caretTarget, element.id, setActiveElement, clearPendingCaret]);
 
-  const layout = ELEMENT_LAYOUT[element.type]
+  const layout = ELEMENT_LAYOUT[element.type];
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const div = ref.current!
-    const caret = getCaretOffset(div)
-    const ctx = { element, caret, hasSelection: hasSelection() }
+    const div = ref.current!;
+    const caret = getCaretOffset(div);
+    const ctx = { element, caret, hasSelection: hasSelection() };
 
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      checkpoint()
-      const act = onEnter(ctx)
-      if (act.kind === 'transform' && act.type) {
-        setElementType(element.id, act.type)
-        requestCaret(element.id, 0)
-      } else if (act.kind === 'create' && act.type) {
-        const id = insertElementAfter(element.id, act.type)
-        requestCaret(id, 0)
-      } else if (act.kind === 'split' && act.type) {
-        const id = splitElement(element.id, caret, act.type)
-        requestCaret(id, 0)
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      checkpoint();
+      const act = onEnter(ctx);
+      if (act.kind === "transform" && act.type) {
+        setElementType(element.id, act.type);
+        requestCaret(element.id, 0);
+      } else if (act.kind === "create" && act.type) {
+        const id = insertElementAfter(element.id, act.type);
+        requestCaret(id, 0);
+      } else if (act.kind === "split" && act.type) {
+        const id = splitElement(element.id, caret, act.type);
+        requestCaret(id, 0);
       }
-      return
+      return;
     }
 
-    if (e.key === 'Tab') {
-      e.preventDefault()
-      checkpoint()
+    if (e.key === "Tab") {
+      e.preventDefault();
+      checkpoint();
       if (e.shiftKey) {
-        setElementType(element.id, cycleType(element.type, -1))
-        requestCaret(element.id, caret)
-        return
+        setElementType(element.id, cycleType(element.type, -1));
+        requestCaret(element.id, caret);
+        return;
       }
-      const act = onTab(ctx)
-      if (act.kind === 'transform' && act.type) {
-        setElementType(element.id, act.type)
-        requestCaret(element.id, 0)
-      } else if (act.kind === 'create' && act.type) {
-        const id = insertElementAfter(element.id, act.type)
-        requestCaret(id, 0)
+      const act = onTab(ctx);
+      if (act.kind === "transform" && act.type) {
+        setElementType(element.id, act.type);
+        requestCaret(element.id, 0);
+      } else if (act.kind === "create" && act.type) {
+        const id = insertElementAfter(element.id, act.type);
+        requestCaret(id, 0);
       }
-      return
+      return;
     }
 
-    if (e.key === 'Backspace') {
-      const act = onBackspaceAtStart(ctx)
-      if (act.kind === 'merge') {
-        e.preventDefault()
-        checkpoint()
-        const res = mergeWithPrevious(element.id)
-        if (res) requestCaret(res.prevId, res.joinAt)
+    if (e.key === "Backspace") {
+      const act = onBackspaceAtStart(ctx);
+      if (act.kind === "merge") {
+        e.preventDefault();
+        checkpoint();
+        const res = mergeWithPrevious(element.id);
+        if (res) requestCaret(res.prevId, res.joinAt);
       }
-      return
+      return;
     }
 
     // Arrow navigation across element boundaries.
-    if (e.key === 'ArrowUp' && caret === 0) {
-      const prev = neighbour(element.id, -1)
+    if (e.key === "ArrowUp" && caret === 0) {
+      const prev = neighbour(element.id, -1);
       if (prev) {
-        e.preventDefault()
-        requestCaret(prev.id, prev.text.length)
+        e.preventDefault();
+        requestCaret(prev.id, prev.text.length);
       }
-    } else if (e.key === 'ArrowDown' && caret === (div.textContent?.length ?? 0)) {
-      const next = neighbour(element.id, +1)
+    } else if (
+      e.key === "ArrowDown" &&
+      caret === (div.textContent?.length ?? 0)
+    ) {
+      const next = neighbour(element.id, +1);
       if (next) {
-        e.preventDefault()
-        requestCaret(next.id, next.text.length)
+        e.preventDefault();
+        requestCaret(next.id, next.text.length);
       }
     }
-  }
+  };
 
   const neighbour = (id: string, dir: -1 | 1) => {
-    const els = useScriptStore.getState().script.elements
-    const i = els.findIndex((el) => el.id === id)
-    return els[i + dir] ?? null
-  }
+    const els = useScriptStore.getState().script.elements;
+    const i = els.findIndex((el) => el.id === id);
+    return els[i + dir] ?? null;
+  };
 
   const handleInput = () => {
-    const div = ref.current!
-    const text = div.textContent ?? ''
-    updateElementText(element.id, text)
-    const detected = detectTypeFromText(text, element.type)
+    const div = ref.current!;
+    const text = div.textContent ?? "";
+    updateElementText(element.id, text);
+    const detected = detectTypeFromText(text, element.type);
     if (detected) {
-      const caret = getCaretOffset(div)
-      checkpoint()
-      setElementType(element.id, detected)
-      requestCaret(element.id, caret)
+      const caret = getCaretOffset(div);
+      checkpoint();
+      setElementType(element.id, detected);
+      requestCaret(element.id, caret);
     }
-  }
+  };
 
   const handleBlur = () => {
-    const normal = normalizeText(element.type, element.text)
-    if (normal !== element.text) updateElementText(element.id, normal)
-  }
+    const normal = normalizeText(element.type, element.text);
+    if (normal !== element.text) updateElementText(element.id, normal);
+  };
 
   /**
    * Paste, single-block case (cross-block pastes are captured by the
@@ -180,35 +192,44 @@ export const ElementBlock = memo(function ElementBlock({ element }: { element: S
    * would inject foreign HTML into the contentEditable.
    */
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    const text = e.clipboardData.getData('text/plain').replace(/\r\n?/g, '\n')
-    if (text === '') return
-    const div = ref.current!
-    const sel = getBlockSelection()
+    e.preventDefault();
+    const text = e.clipboardData.getData("text/plain").replace(/\r\n?/g, "\n");
+    if (text === "") return;
+    const div = ref.current!;
+    const sel = getBlockSelection();
     // A selection inside this block is replaced by the paste, atomically.
     if (sel && !sel.crossBlock && sel.startId === element.id) {
       const [from, to] =
         sel.startOffset <= sel.endOffset
           ? [sel.startOffset, sel.endOffset]
-          : [sel.endOffset, sel.startOffset]
-      if (text.includes('\n')) {
-        const parts = parseFountainBody(text.split('\n'))
-        const target = useScriptStore.getState().pasteElements(element.id, from, parts, to)
-        if (target) requestCaret(target.focusId, target.offset)
+          : [sel.endOffset, sel.startOffset];
+      if (text.includes("\n")) {
+        const parts = parseFountainBody(text.split("\n"));
+        const target = useScriptStore
+          .getState()
+          .pasteElements(element.id, from, parts, to);
+        if (target) requestCaret(target.focusId, target.offset);
       } else {
-        checkpoint()
-        updateElementText(element.id, element.text.slice(0, from) + text + element.text.slice(to))
-        requestCaret(element.id, from + text.length)
+        checkpoint();
+        updateElementText(
+          element.id,
+          element.text.slice(0, from) + text + element.text.slice(to),
+        );
+        requestCaret(element.id, from + text.length);
       }
-      return
+      return;
     }
-    pastePlainText(element.id, getCaretOffset(div), text)
-  }
+    pastePlainText(element.id, getCaretOffset(div), text);
+  };
 
   // Re-renders only when the peers on THIS element change (shallow compare).
   const peers = useCollabStore(
-    useShallow((s) => s.peers.filter((p) => p.elementId === element.id && p.userId !== s.selfId)),
-  )
+    useShallow((s) =>
+      s.peers.filter(
+        (p) => p.elementId === element.id && p.userId !== s.selfId,
+      ),
+    ),
+  );
 
   return (
     <div className="relative">
@@ -230,34 +251,36 @@ export const ElementBlock = memo(function ElementBlock({ element }: { element: S
         ref={ref}
         contentEditable={!element.locked}
         suppressContentEditableWarning
-        spellCheck={element.type === 'action' || element.type === 'dialogue'}
-        className={`element-block font-screenplay ${active ? 'bg-blue-50 dark:bg-slate-800/60' : ''}`}
+        spellCheck={element.type === "action" || element.type === "dialogue"}
+        className={`element-block font-screenplay transition-colors duration-150 ${active ? "bg-brass-soft/50" : ""}`}
         style={{
           marginLeft: layout.rightAlign ? undefined : `${layout.indent}ch`,
           maxWidth: `${layout.width}ch`,
-          textAlign: layout.rightAlign ? 'right' : 'left',
-          textTransform: UPPERCASE_TYPES.has(element.type) ? 'uppercase' : undefined,
+          textAlign: layout.rightAlign ? "right" : "left",
+          textTransform: UPPERCASE_TYPES.has(element.type)
+            ? "uppercase"
+            : undefined,
           marginRight: layout.rightAlign ? 0 : undefined,
         }}
         data-element-id={element.id}
         data-element-type={element.type}
-        data-placeholder={active ? PLACEHOLDERS[element.type] ?? '' : ''}
+        data-placeholder={active ? (PLACEHOLDERS[element.type] ?? "") : ""}
         onKeyDown={handleKeyDown}
         onInput={handleInput}
         onPaste={handlePaste}
         onFocus={() => setActiveElement(element.id)}
         onBlur={handleBlur}
       />
-      {element.sceneNumber && element.type === 'scene_heading' && (
-        <span className="absolute -left-10 top-0 font-screenplay text-gray-500 select-none">
+      {element.sceneNumber && element.type === "scene_heading" && (
+        <span className="absolute -left-10 top-0 font-screenplay text-ink-faint select-none">
           {element.sceneNumber}
         </span>
       )}
     </div>
-  )
-})
+  );
+});
 
 /** What Enter would create next — shown in the status bar as a hint. */
-export function nextTypeHint(type: ScriptElement['type']): string {
-  return NEXT_ON_ENTER[type]
+export function nextTypeHint(type: ScriptElement["type"]): string {
+  return NEXT_ON_ENTER[type];
 }
