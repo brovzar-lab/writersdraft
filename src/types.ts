@@ -49,6 +49,12 @@ export interface ScriptElement {
   alternates?: string[]
   /** Index of the active alternate; -1 or undefined = main text. */
   activeAlternate?: number
+  /**
+   * Dual-dialogue column (FDX interop). Elements of one side-by-side
+   * exchange carry 'left'/'right'; the editor renders them sequentially,
+   * and FDX export re-wraps a contiguous dual run in <DualDialogue>.
+   */
+  dual?: 'left' | 'right'
 }
 
 export interface SceneInfo {

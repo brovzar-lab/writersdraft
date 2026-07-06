@@ -76,6 +76,7 @@ function sanitizeElement(v: unknown): ScriptElement | null {
   const alternates = strArray(e.alternates)
   if (alternates) el.alternates = alternates
   if (typeof e.activeAlternate === 'number') el.activeAlternate = e.activeAlternate
+  if (e.dual === 'left' || e.dual === 'right') el.dual = e.dual
   return el
 }
 

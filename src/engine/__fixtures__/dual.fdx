@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="5">
+  <Content>
+    <Paragraph Type="Scene Heading" Number="1">
+      <SceneProperties Length="3/8" Page="1" Title=""/>
+      <Text>INT. CONTROL ROOM - DAY</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <ScriptNote Id="n1">
+        <Paragraph Type="General">
+          <Text>Check with production: how many consoles fit on the set?</Text>
+        </Paragraph>
+      </ScriptNote>
+      <Text>Banks of consoles. RIVERA and CHO work opposite stations, talking over each other.</Text>
+    </Paragraph>
+    <DualDialogue>
+      <Paragraph Type="Character">
+        <Text>RIVERA</Text>
+      </Paragraph>
+      <Paragraph Type="Dialogue">
+        <Text>Pressure's dropping in line two, I need eyes on the manifold right now.</Text>
+      </Paragraph>
+      <Paragraph Type="Character">
+        <Text>CHO</Text>
+      </Paragraph>
+      <Paragraph Type="Parenthetical">
+        <Text>(into headset)</Text>
+      </Paragraph>
+      <Paragraph Type="Dialogue">
+        <Text>Ignore her, stay on the countdown, we are NOT scrubbing today.</Text>
+      </Paragraph>
+    </DualDialogue>
+    <Paragraph Type="Shot">
+      <Text>CLOSE ON THE GAUGE</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>The needle trembles past red.</Text>
+    </Paragraph>
+    <Paragraph Type="Scene Heading" Number="2">
+      <SceneProperties Length="1/8" Page="1" Title=""/>
+      <Text>EXT. LAUNCH PAD - DAY</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Steam vents scream. Birds scatter.</Text>
+    </Paragraph>
+    <Paragraph Type="Transition">
+      <Text>SMASH CUT TO:</Text>
+    </Paragraph>
+    <Paragraph Type="Scene Heading" Number="2A">
+      <SceneProperties Length="1/8" Page="2" Title=""/>
+      <Text>INT. BUNKER - DAY</Text>
+    </Paragraph>
+    <Paragraph Type="General">
+      <Text>TITLE CARD: T-MINUS SIXTY SECONDS</Text>
+    </Paragraph>
+  </Content>
+  <TitlePage>
+    <Content>
+      <Paragraph Alignment="Center">
+        <Text>COUNTDOWN</Text>
+      </Paragraph>
+      <Paragraph Alignment="Center">
+        <Text>written by</Text>
+      </Paragraph>
+      <Paragraph Alignment="Center">
+        <Text>A. Screenwriter</Text>
+      </Paragraph>
+    </Content>
+  </TitlePage>
+</FinalDraft>

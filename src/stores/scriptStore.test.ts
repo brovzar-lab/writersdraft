@@ -367,6 +367,21 @@ describe('story bible docs', () => {
     expect(s.tags).toEqual([])
     expect(s.elements[0].text).toBe('Hi')
   })
+
+  it('migrateScript preserves valid dual-dialogue marks and drops bogus ones', () => {
+    const input = {
+      id: 'x',
+      elements: [
+        { ...makeElement('character', 'A'), dual: 'left' },
+        { ...makeElement('dialogue', 'Hi'), dual: 'right' },
+        { ...makeElement('action', 'Later.'), dual: 'sideways' },
+      ],
+    }
+    const s = migrateScript(input as never)
+    expect(s.elements[0].dual).toBe('left')
+    expect(s.elements[1].dual).toBe('right')
+    expect(s.elements[2].dual).toBeUndefined()
+  })
 })
 
 describe('version timeline', () => {

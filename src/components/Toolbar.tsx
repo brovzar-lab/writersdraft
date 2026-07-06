@@ -3,6 +3,7 @@ import { useScriptStore } from '../stores/scriptStore'
 import { useUiStore, type AppView } from '../stores/uiStore'
 import { ELEMENT_LABELS, ELEMENT_TYPES, type ElementType } from '../types'
 import { exportFountain, importFountain } from '../engine/fountain'
+import { exportFdx, importFdx } from '../engine/fdx'
 import { AccountMenu, type AccountUser } from './AccountMenu'
 
 function download(filename: string, text: string) {
@@ -144,30 +145,56 @@ export function Toolbar({
             🔒 Lock
           </button>
         )}
-        <button
-          onClick={() => {
-            const s = useScriptStore.getState().script
-            download(`${s.titlePage.title || 'script'}.fountain`, exportFountain(s))
-          }}
-          className="rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600"
-          title="Export as Fountain"
-        >
-          Export
-        </button>
-        <label className="cursor-pointer rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600" title="Import a .fountain file">
+        <details className="relative">
+          <summary className="cursor-pointer list-none rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600 select-none" title="Export the script">
+            Export ▾
+          </summary>
+          <div className="absolute right-0 z-20 mt-1 flex w-40 flex-col rounded border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-lg">
+            <button
+              onClick={(e) => {
+                const s = useScriptStore.getState().script
+                download(`${s.titlePage.title || 'script'}.fdx`, exportFdx(s))
+                e.currentTarget.closest('details')?.removeAttribute('open')
+              }}
+              className="px-2 py-1.5 text-left text-xs hover:bg-gray-100 dark:hover:bg-slate-700"
+              title="Final Draft document (industry standard)"
+            >
+              Final Draft (.fdx)
+            </button>
+            <button
+              onClick={(e) => {
+                const s = useScriptStore.getState().script
+                download(`${s.titlePage.title || 'script'}.fountain`, exportFountain(s))
+                e.currentTarget.closest('details')?.removeAttribute('open')
+              }}
+              className="px-2 py-1.5 text-left text-xs hover:bg-gray-100 dark:hover:bg-slate-700"
+              title="Plain-text screenplay format"
+            >
+              Fountain (.fountain)
+            </button>
+          </div>
+        </details>
+        <label className="cursor-pointer rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600" title="Import a .fdx or .fountain file">
           Import
           <input
             type="file"
-            accept=".fountain,.txt"
+            accept=".fdx,.fountain,.txt"
             className="hidden"
             onChange={async (e) => {
               const f = e.target.files?.[0]
               if (f) {
-                const imported = importFountain(await f.text())
-                loadScript(imported)
-                useScriptStore.getState().loadTimeline([])
-                // Imports must persist even before the first edit.
-                useScriptStore.getState().markDirty()
+                try {
+                  const text = await f.text()
+                  const imported = f.name.toLowerCase().endsWith('.fdx')
+                    ? importFdx(text)
+                    : importFountain(text)
+                  loadScript(imported)
+                  useScriptStore.getState().loadTimeline([])
+                  // Imports must persist even before the first edit.
+                  useScriptStore.getState().markDirty()
+                } catch (err) {
+                  alert(`Could not import ${f.name}: ${err instanceof Error ? err.message : err}`)
+                }
               }
               e.target.value = ''
             }}
