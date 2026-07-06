@@ -16,6 +16,7 @@ import {
   query,
   where,
   serverTimestamp,
+  writeBatch,
   type Unsubscribe,
 } from 'firebase/firestore'
 import {
@@ -78,7 +79,8 @@ export async function listCloudScripts(ownerId: string): Promise<CloudScriptMeta
   const snap = await getDocs(query(collection(db, 'scripts'), where('ownerId', '==', ownerId)))
   const out: CloudScriptMeta[] = []
   snap.forEach((d) => {
-    const data = d.data() as Partial<Script>
+    const data = d.data() as Partial<Script> & { ownerId?: string }
+    noteRemote(d.id, data.ownerId)
     out.push({
       id: d.id,
       title: data.titlePage?.title || 'Untitled',
@@ -88,22 +90,51 @@ export async function listCloudScripts(ownerId: string): Promise<CloudScriptMeta
   return out.sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
+/**
+ * Documents this session knows exist remotely, and who owns them. The
+ * security rules make ownerId immutable and rate-limit creates, so the
+ * client must (a) never stamp its own uid over an existing owner — a
+ * collaborator's save would be rejected wholesale — and (b) pair each
+ * genuine create with a userMeta rate-limiter bump in the same batch.
+ */
+const knownRemote = new Set<string>()
+const remoteOwner = new Map<string, string>()
+
+function noteRemote(scriptId: string, ownerId: unknown): void {
+  knownRemote.add(scriptId)
+  if (typeof ownerId === 'string') remoteOwner.set(scriptId, ownerId)
+}
+
 export async function saveScript(script: Script, ownerId: string): Promise<void> {
   const { db } = getFirebase()
   // No merge: the client always writes the whole document. Merging maps
   // (sceneMeta) resurrected locally-deleted keys on the next load.
-  await setDoc(doc(db, 'scripts', script.id), {
+  const data = {
     ...script,
-    ownerId,
+    ownerId: remoteOwner.get(script.id) ?? ownerId,
     savedAt: serverTimestamp(),
-  })
+  }
+  const ref = doc(db, 'scripts', script.id)
+  if (knownRemote.has(script.id)) {
+    await setDoc(ref, data)
+    return
+  }
+  // First save of this document: a create must bump the caller's rate
+  // limiter in the same batch or the rules reject it.
+  const batch = writeBatch(db)
+  batch.set(ref, data)
+  batch.set(doc(db, 'userMeta', data.ownerId), { lastCreateAt: serverTimestamp() })
+  await batch.commit()
+  noteRemote(script.id, data.ownerId)
 }
 
 export async function loadScript(scriptId: string): Promise<Script | null> {
   const { db } = getFirebase()
   const snap = await getDoc(doc(db, 'scripts', scriptId))
   if (!snap.exists()) return null
-  return snap.data() as Script
+  const data = snap.data() as Script & { ownerId?: string }
+  noteRemote(scriptId, data.ownerId)
+  return data
 }
 
 export function subscribeToScript(
@@ -115,7 +146,9 @@ export function subscribeToScript(
     doc(db, 'scripts', scriptId),
     (snap) => {
       if (!snap.exists() || snap.metadata.hasPendingWrites) return
-      onRemote(snap.data() as Script)
+      const data = snap.data() as Script & { ownerId?: string }
+      noteRemote(scriptId, data.ownerId)
+      onRemote(data)
     },
     () => {
       // Permission denied (not signed in to the owning account yet) or

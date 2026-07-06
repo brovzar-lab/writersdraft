@@ -1,24 +1,126 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Scripts are owned by their creator; collaborators listed on the doc
-    // may read and write. Presence subcollection is open to collaborators.
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // ------------------------------------------------------------------
+    // Create rate limiting: a script create must arrive in the same batch
+    // as a bump of the caller's userMeta/lastCreateAt (proven via getAfter),
+    // and the previous bump must be at least 5 seconds old. Spam-creating
+    // documents therefore can't exceed one script per 5s per account.
+    // ------------------------------------------------------------------
+    function limiterBumped() {
+      return getAfter(/databases/$(database)/documents/userMeta/$(request.auth.uid))
+        .data.lastCreateAt == request.time;
+    }
+    function limiterCool() {
+      return !exists(/databases/$(database)/documents/userMeta/$(request.auth.uid))
+        || get(/databases/$(database)/documents/userMeta/$(request.auth.uid))
+             .data.lastCreateAt < request.time - duration.value(5, 's');
+    }
+
+    match /userMeta/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['lastCreateAt'])
+        && request.resource.data.lastCreateAt == request.time;
+      allow delete: if false;
+    }
+
     match /scripts/{scriptId} {
-      allow create: if request.auth != null
-        && request.resource.data.ownerId == request.auth.uid;
-      allow read, update, delete: if request.auth != null
-        && (resource.data.ownerId == request.auth.uid
-            || request.auth.uid in resource.data.get('collaborators', []));
 
+      function isOwner() {
+        return request.auth.uid == resource.data.ownerId;
+      }
+      function isParticipant() {
+        return isOwner()
+          || request.auth.uid in resource.data.get('collaborators', []);
+      }
+      function ownerImmutable() {
+        return request.resource.data.ownerId == resource.data.ownerId;
+      }
+      function collaboratorsUnchanged() {
+        return request.resource.data.get('collaborators', [])
+          == resource.data.get('collaborators', []);
+      }
+      // Schema + size limits. Firestore's 1 MiB document cap is the hard
+      // byte backstop; these bound the shape so a hostile client can't
+      // stuff foreign fields or absurd structures into a script document.
+      function validScript() {
+        let d = request.resource.data;
+        return d.keys().hasOnly([
+            'id', 'titlePage', 'elements', 'locked', 'revisionColor',
+            'tags', 'notes', 'characters', 'sceneMeta', 'docs',
+            'updatedAt', 'ownerId', 'savedAt', 'collaborators'
+          ])
+          && d.id == scriptId
+          && d.ownerId is string
+          && d.elements is list && d.elements.size() <= 20000
+          && d.titlePage is map
+          && d.titlePage.get('title', '') is string
+          && d.titlePage.get('title', '').size() <= 300
+          && d.updatedAt is number
+          && d.tags is list && d.tags.size() <= 200
+          && d.notes is list && d.notes.size() <= 2000
+          && d.docs is list && d.docs.size() <= 200
+          && (!('collaborators' in d)
+              || (d.collaborators is list && d.collaborators.size() <= 25));
+      }
+
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && validScript()
+        && limiterBumped()
+        && limiterCool();
+
+      allow read: if signedIn() && isParticipant();
+
+      // Collaborators may edit the script but never re-home it; only the
+      // owner may change who the collaborators are.
+      allow update: if signedIn()
+        && isParticipant()
+        && ownerImmutable()
+        && validScript()
+        && (isOwner() || collaboratorsUnchanged());
+
+      allow delete: if signedIn() && isOwner();
+
+      // Presence: visible to (and writable by) participants only, and a
+      // user may only write their own presence document.
       match /presence/{userId} {
-        allow read: if request.auth != null;
-        allow write: if request.auth != null && request.auth.uid == userId;
+        function parentScript() {
+          return get(/databases/$(database)/documents/scripts/$(scriptId)).data;
+        }
+        function participantOfParent() {
+          return request.auth.uid == parentScript().ownerId
+            || request.auth.uid in parentScript().get('collaborators', []);
+        }
+        function validPresence() {
+          let d = request.resource.data;
+          return d.keys().hasOnly(['userId', 'name', 'color', 'elementId', 'updatedAt'])
+            && d.userId == request.auth.uid
+            && d.name is string && d.name.size() <= 60
+            && d.color is string && d.color.size() <= 20
+            && (d.elementId == null
+                || (d.elementId is string && d.elementId.size() <= 100))
+            && d.updatedAt is number;
+        }
+        allow read: if signedIn() && participantOfParent();
+        allow create, update: if signedIn()
+          && request.auth.uid == userId
+          && participantOfParent()
+          && validPresence();
+        allow delete: if signedIn()
+          && (request.auth.uid == userId
+              || request.auth.uid == parentScript().ownerId);
       }
 
-      match /history/{entryId} {
-        allow read, create: if request.auth != null;
-        allow update, delete: if false;
-      }
+      // No other subcollections exist; nothing else is readable or
+      // writable (the old wide-open /history rules are gone on purpose —
+      // the app never wrote there).
     }
   }
 }

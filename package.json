@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:rules": "firebase emulators:exec --only firestore --project writersdraft-demo \"vitest run --config vitest.rules.config.ts\"",
     "emulators": "firebase emulators:start --project writersdraft-demo",
     "emulators:exec": "firebase emulators:exec --project writersdraft-demo"
   },
@@ -21,6 +22,7 @@
     "zustand": "^5.0.5"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
     "@tailwindcss/vite": "^4.1.10",
     "@types/react": "^18.3.20",
     "@types/react-dom": "^18.3.7",
