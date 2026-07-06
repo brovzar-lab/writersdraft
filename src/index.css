@@ -1,0 +1,42 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --page-width: 8.5in;
+  --page-min-height: 11in;
+}
+
+.font-screenplay {
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  font-size: 12pt;
+  line-height: 1;
+}
+
+/* A US Letter page: 1" top/bottom, 1.5" left, 1" right. */
+.script-page {
+  width: var(--page-width);
+  min-height: var(--page-min-height);
+  padding: 1in 1in 1in 1.5in;
+  box-sizing: border-box;
+}
+
+.element-block {
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 12pt;
+  line-height: 12pt;
+}
+
+.element-block:empty::before {
+  content: attr(data-placeholder);
+  color: rgb(156 163 175 / 0.7);
+  pointer-events: none;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
