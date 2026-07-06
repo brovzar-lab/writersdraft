@@ -14,8 +14,10 @@ function download(filename: string, text: string) {
 
 const VIEWS: Array<{ id: AppView; label: string }> = [
   { id: 'editor', label: 'Script' },
+  { id: 'bible', label: 'Story Bible' },
   { id: 'beatboard', label: 'Beat Board' },
   { id: 'analytics', label: 'Analytics' },
+  { id: 'history', label: 'History' },
   { id: 'titlepage', label: 'Title Page' },
 ]
 
@@ -135,7 +137,29 @@ export function Toolbar({ syncState }: { syncState: string }) {
         <button onClick={toggleFocusMode} className="rounded px-1.5 py-0.5 text-xs border border-gray-200 dark:border-slate-600" title="Focus mode (Esc to exit)">
           ⛶ Focus
         </button>
+        <SprintButton />
       </div>
     </header>
+  )
+}
+
+function SprintButton() {
+  const { sprint, startSprint } = useUiStore()
+  const elements = useScriptStore((s) => s.script.elements)
+  if (sprint) return null
+  return (
+    <button
+      onClick={() => {
+        const words = elements.reduce(
+          (a, el) => a + (el.text.trim() ? el.text.trim().split(/\s+/).length : 0),
+          0,
+        )
+        startSprint(15, 300, words)
+      }}
+      className="rounded px-1.5 py-0.5 text-xs border border-green-300 text-green-600"
+      title="15-minute writing sprint, 300-word goal. Enters focus mode."
+    >
+      ⚡ Sprint
+    </button>
   )
 }

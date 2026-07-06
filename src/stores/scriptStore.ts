@@ -7,16 +7,22 @@ import { create } from 'zustand'
 import type {
   CharacterProfile,
   ElementType,
+  HistoryEntry,
   RevisionColor,
   SceneInfo,
   Script,
   ScriptElement,
   ScriptNote,
   ScriptTag,
+  StoryDoc,
   TitlePage,
 } from '../types'
 import { REVISION_COLOR_ORDER } from '../types'
 import { normalizeText } from '../engine/stateMachine'
+import { pageCount } from '../engine/pagination'
+import { countWords } from '../engine/analysis'
+
+const TIMELINE_LIMIT = 100
 
 export function newId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
@@ -38,8 +44,14 @@ export function emptyScript(): Script {
     notes: [],
     characters: [],
     sceneMeta: {},
+    docs: [],
     updatedAt: 0,
   }
+}
+
+/** Fill in fields missing from scripts saved by older versions. */
+export function migrateScript(s: Partial<Script>): Script {
+  return { ...emptyScript(), ...s, docs: s.docs ?? [], sceneMeta: s.sceneMeta ?? {} }
 }
 
 interface Snapshot {
@@ -88,6 +100,17 @@ export interface ScriptState {
 
   // Characters (analytics support)
   setCharacterGender: (name: string, gender: CharacterProfile['gender']) => void
+
+  // Story bible docs (treatment / outline / bios / research)
+  addDoc: (kind: StoryDoc['kind'], title: string) => StoryDoc
+  updateDoc: (id: string, patch: Partial<Pick<StoryDoc, 'title' | 'content' | 'kind'>>) => void
+  removeDoc: (id: string) => void
+
+  // Version timeline
+  timeline: HistoryEntry[]
+  recordSnapshot: (label: string) => HistoryEntry | null
+  restoreSnapshot: (id: string) => void
+  loadTimeline: (t: HistoryEntry[]) => void
 
   // Production workflow
   lockScript: () => void
@@ -342,6 +365,50 @@ export const useScriptStore = create<ScriptState>((set, get) => {
           return { ...el, text: chosen, alternates: newAlts, activeAlternate: index }
         }),
       })),
+
+    addDoc: (kind, title) => {
+      const docItem: StoryDoc = { id: newId(), kind, title, content: '', updatedAt: Date.now() }
+      withoutHistory((s) => ({ docs: [...s.docs, docItem] }))
+      return docItem
+    },
+
+    updateDoc: (id, patch) =>
+      withoutHistory((s) => ({
+        docs: s.docs.map((d) =>
+          d.id === id ? { ...d, ...patch, updatedAt: Date.now() } : d,
+        ),
+      })),
+
+    removeDoc: (id) =>
+      withoutHistory((s) => ({ docs: s.docs.filter((d) => d.id !== id) })),
+
+    timeline: [],
+
+    loadTimeline: (timeline) => set({ timeline: timeline.slice(-TIMELINE_LIMIT) }),
+
+    recordSnapshot: (label) => {
+      const s = get().script
+      const last = get().timeline[get().timeline.length - 1]
+      // Skip no-op snapshots: identical element content to the latest entry.
+      if (last && JSON.stringify(last.elements) === JSON.stringify(s.elements)) return null
+      const entry: HistoryEntry = {
+        id: newId(),
+        at: Date.now(),
+        label,
+        elements: s.elements,
+        titlePage: s.titlePage,
+        pageCount: pageCount(s.elements),
+        words: s.elements.reduce((a, el) => a + countWords(el.text), 0),
+      }
+      set((state) => ({ timeline: [...state.timeline, entry].slice(-TIMELINE_LIMIT) }))
+      return entry
+    },
+
+    restoreSnapshot: (id) => {
+      const entry = get().timeline.find((e) => e.id === id)
+      if (!entry) return
+      withHistory(() => ({ elements: entry.elements, titlePage: entry.titlePage }))
+    },
 
     setCharacterGender: (name, gender) =>
       withoutHistory((s) => {

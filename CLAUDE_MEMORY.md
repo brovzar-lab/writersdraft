@@ -17,5 +17,8 @@ Don't render the text as JSX children. Sync `div.textContent` in an effect only 
 ## Industry layout constants (Courier 12pt, US Letter)
 10 chars/inch, 6 lines/inch, 55 body lines/page. Margins 1.5" left, 1" right/top/bottom. Indents in chars from left margin: action 0/60 wide, dialogue 10/35, parenthetical 16/25, character 22, transition right-aligned. Scene headings get 2 blank lines before, most other blocks 1, dialogue group 0.
 
+## Playwright smoke test is the real editor gate
+Unit tests can't catch contentEditable focus/caret wiring; drive the dev server with playwright-core (`executablePath: '/opt/pw-browsers/chromium'`, `--no-sandbox`) and assert `document.activeElement`'s `data-element-type` after each Enter/Tab. Chrome's automatic /favicon.ico request 404s against Vite — use a data-URI favicon to keep the console clean. Script lives at scratchpad/smoke.mjs.
+
 ## FD-style state machine transitions used
 Enter: scene→action, action→action, char→dialogue, dialogue→action, paren→dialogue, transition→scene. Tab: action→character, char→transition, dialogue→parenthetical. Empty element + Enter = transform to action (escape hatch); empty + Tab = transform in place.

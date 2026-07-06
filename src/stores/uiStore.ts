@@ -1,7 +1,14 @@
 /** UI chrome state: panels, focus mode, active view, active element. */
 import { create } from 'zustand'
 
-export type AppView = 'editor' | 'beatboard' | 'analytics' | 'titlepage'
+export type AppView = 'editor' | 'beatboard' | 'analytics' | 'titlepage' | 'bible' | 'history'
+
+/** An active writing sprint (distraction-buster with a word goal). */
+export interface Sprint {
+  endsAt: number
+  startWords: number
+  targetWords: number
+}
 
 export interface UiState {
   view: AppView
@@ -14,7 +21,10 @@ export interface UiState {
   /** Caret position to restore when programmatically moving focus. */
   pendingCaret: { elementId: string; offset: number } | null
   tagFilter: string | null
+  sprint: Sprint | null
 
+  startSprint: (minutes: number, targetWords: number, currentWords: number) => void
+  endSprint: () => void
   setView: (v: AppView) => void
   toggleSidebar: () => void
   toggleNotes: () => void
@@ -35,7 +45,19 @@ export const useUiStore = create<UiState>((set) => ({
   activeElementId: null,
   pendingCaret: null,
   tagFilter: null,
+  sprint: null,
 
+  startSprint: (minutes, targetWords, currentWords) =>
+    set({
+      sprint: {
+        endsAt: Date.now() + minutes * 60_000,
+        startWords: currentWords,
+        targetWords,
+      },
+      focusMode: true,
+      sidebarOpen: false,
+    }),
+  endSprint: () => set({ sprint: null, focusMode: false, sidebarOpen: true }),
   setView: (view) => set({ view }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   toggleNotes: () => set((s) => ({ notesOpen: !s.notesOpen })),

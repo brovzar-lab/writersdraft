@@ -9,9 +9,14 @@ import { BeatBoard } from './components/BeatBoard'
 import { AnalyticsPanel } from './components/AnalyticsPanel'
 import { TitlePageView } from './components/TitlePageView'
 import { NotesPanel } from './components/NotesPanel'
-import type { Script } from './types'
+import { StoryBible } from './components/StoryBible'
+import { HistoryTimeline } from './components/HistoryTimeline'
+import { useCollabStore } from './stores/collabStore'
+import { migrateScript } from './stores/scriptStore'
+import type { HistoryEntry, Script } from './types'
 
 const LS_KEY = 'writersdraft:script'
+const LS_TIMELINE = 'writersdraft:timeline'
 
 export default function App() {
   const script = useScriptStore((s) => s.script)
@@ -21,11 +26,13 @@ export default function App() {
   const [syncState, setSyncState] = useState('local')
   const userIdRef = useRef<string | null>(null)
 
-  // Restore from localStorage on first mount.
+  // Restore script + timeline from localStorage on first mount.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LS_KEY)
-      if (raw) loadScript(JSON.parse(raw) as Script)
+      if (raw) loadScript(migrateScript(JSON.parse(raw) as Partial<Script>))
+      const tl = localStorage.getItem(LS_TIMELINE)
+      if (tl) useScriptStore.getState().loadTimeline(JSON.parse(tl) as HistoryEntry[])
     } catch {
       // Corrupt autosave — start fresh rather than crash.
     }
@@ -37,6 +44,8 @@ export default function App() {
     const t = setTimeout(async () => {
       try {
         localStorage.setItem(LS_KEY, JSON.stringify(useScriptStore.getState().script))
+        useScriptStore.getState().recordSnapshot('Autosave')
+        localStorage.setItem(LS_TIMELINE, JSON.stringify(useScriptStore.getState().timeline))
         markSaved()
       } catch {
         // Quota exceeded — keep the dirty flag so the user sees "unsaved".
@@ -67,7 +76,9 @@ export default function App() {
         ])
         if (!cancelled) {
           userIdRef.current = user.uid
+          useCollabStore.getState().setSelf(user.uid)
           setSyncState('synced')
+          startCollab(user.uid)
         }
       } catch {
         if (!cancelled) setSyncState('local')
@@ -77,6 +88,42 @@ export default function App() {
       cancelled = true
     }
   }, [])
+
+  // Live collaboration: presence heartbeat + remote snapshot subscription.
+  const startCollab = async (uid: string) => {
+    try {
+      const { subscribePresence, publishPresence, subscribeToScript } = await import(
+        './firebase/sync'
+      )
+      const scriptId = useScriptStore.getState().script.id
+      subscribePresence(scriptId, (peers) => useCollabStore.getState().setPeers(peers))
+      subscribeToScript(scriptId, (remote) => {
+        if (remote.updatedAt > useScriptStore.getState().script.updatedAt) {
+          loadScript(migrateScript(remote))
+        }
+      })
+      const beat = () => {
+        publishPresence(scriptId, {
+          userId: uid,
+          name: `Writer ${uid.slice(0, 4)}`,
+          color: useCollabStore.getState().selfColor,
+          elementId: useUiStore.getState().activeElementId,
+          updatedAt: Date.now(),
+        }).catch(() => {})
+      }
+      beat()
+      const iv = setInterval(beat, 20_000)
+      const unsub = useUiStore.subscribe((s, prev) => {
+        if (s.activeElementId !== prev.activeElementId) beat()
+      })
+      window.addEventListener('beforeunload', () => {
+        clearInterval(iv)
+        unsub()
+      })
+    } catch {
+      // Collaboration is best-effort; offline editing is unaffected.
+    }
+  }
 
   // Global keyboard shortcuts.
   useEffect(() => {
@@ -116,6 +163,8 @@ export default function App() {
             {view === 'beatboard' && <BeatBoard />}
             {view === 'analytics' && <AnalyticsPanel />}
             {view === 'titlepage' && <TitlePageView />}
+            {view === 'bible' && <StoryBible />}
+            {view === 'history' && <HistoryTimeline />}
           </main>
           {!focusMode && notesOpen && view === 'editor' && <NotesPanel />}
         </div>

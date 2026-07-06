@@ -18,6 +18,7 @@ import {
 } from '../engine/stateMachine'
 import { useScriptStore } from '../stores/scriptStore'
 import { useUiStore } from '../stores/uiStore'
+import { useCollabStore } from '../stores/collabStore'
 import { getCaretOffset, setCaretOffset, hasSelection } from './caret'
 
 const PLACEHOLDERS: Partial<Record<ScriptElement['type'], string>> = {
@@ -155,9 +156,26 @@ export function ElementBlock({ element }: { element: ScriptElement }) {
   }
 
   const active = activeElementId === element.id
+  const peers = useCollabStore((s) => s.peers).filter(
+    (p) => p.elementId === element.id && p.userId !== useCollabStore.getState().selfId,
+  )
 
   return (
     <div className="relative">
+      {peers.length > 0 && (
+        <div className="absolute -right-2 top-0 flex translate-x-full flex-col gap-0.5">
+          {peers.map((p) => (
+            <span
+              key={p.userId}
+              className="rounded px-1 py-px text-[10px] text-white select-none"
+              style={{ background: p.color }}
+              title={`${p.name} is here`}
+            >
+              {p.name}
+            </span>
+          ))}
+        </div>
+      )}
       <div
         ref={ref}
         contentEditable={!element.locked}

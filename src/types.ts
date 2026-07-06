@@ -100,6 +100,26 @@ export const REVISION_COLOR_ORDER: RevisionColor[] = [
   'goldenrod', 'buff', 'salmon', 'cherry',
 ]
 
+/** Story-bible document kept alongside the screenplay in the same file. */
+export interface StoryDoc {
+  id: string
+  title: string
+  kind: 'treatment' | 'outline' | 'bio' | 'research'
+  content: string
+  updatedAt: number
+}
+
+/** A restorable point-in-time snapshot for the version timeline. */
+export interface HistoryEntry {
+  id: string
+  at: number
+  label: string
+  elements: ScriptElement[]
+  titlePage: TitlePage
+  pageCount: number
+  words: number
+}
+
 export interface Script {
   id: string
   titlePage: TitlePage
@@ -111,6 +131,8 @@ export interface Script {
   notes: ScriptNote[]
   characters: CharacterProfile[]
   sceneMeta: Record<string, { color?: string; synopsis?: string }>
+  /** Treatment, outline, bios, research — same file as the script. */
+  docs: StoryDoc[]
   updatedAt: number
 }
 

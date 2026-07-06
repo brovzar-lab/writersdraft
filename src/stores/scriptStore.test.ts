@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { useScriptStore, emptyScript, makeElement } from './scriptStore'
+import { useScriptStore, emptyScript, makeElement, migrateScript } from './scriptStore'
 import { useUiStore } from './uiStore'
 import { characterStats, genderBreakdown } from '../engine/analysis'
 import { exportFountain, importFountain } from '../engine/fountain'
@@ -21,7 +21,13 @@ function seedScript(): Script {
 }
 
 beforeEach(() => {
-  useScriptStore.setState({ script: seedScript(), past: [], future: [], dirty: false })
+  useScriptStore.setState({
+    script: seedScript(),
+    past: [],
+    future: [],
+    dirty: false,
+    timeline: [],
+  })
 })
 
 describe('scriptStore element CRUD', () => {
@@ -184,6 +190,53 @@ describe('tags, notes, alternates', () => {
     store().setActiveAlternate(el.id, 0)
     expect(store().script.elements[3].text).toBe('Ugh, morning already?')
     expect(store().script.elements[3].alternates).toContain('What a beautiful morning.')
+  })
+})
+
+describe('story bible docs', () => {
+  it('adds, updates and removes docs', () => {
+    const d = store().addDoc('treatment', 'Draft one')
+    expect(store().script.docs).toHaveLength(1)
+    store().updateDoc(d.id, { content: 'A heist gone wrong.' })
+    expect(store().script.docs[0].content).toBe('A heist gone wrong.')
+    store().removeDoc(d.id)
+    expect(store().script.docs).toHaveLength(0)
+  })
+
+  it('migrateScript backfills missing fields from older saves', () => {
+    const legacy = { id: 'x', elements: [makeElement('action', 'Hi')] }
+    const s = migrateScript(legacy as never)
+    expect(s.docs).toEqual([])
+    expect(s.sceneMeta).toEqual({})
+    expect(s.tags).toEqual([])
+    expect(s.elements[0].text).toBe('Hi')
+  })
+})
+
+describe('version timeline', () => {
+  it('records snapshots with page and word counts', () => {
+    const e = store().recordSnapshot('First')
+    expect(e).not.toBeNull()
+    expect(e!.pageCount).toBeGreaterThanOrEqual(1)
+    expect(e!.words).toBeGreaterThan(0)
+    expect(store().timeline).toHaveLength(1)
+  })
+
+  it('skips duplicate snapshots of identical content', () => {
+    store().recordSnapshot('First')
+    expect(store().recordSnapshot('Dup')).toBeNull()
+    expect(store().timeline).toHaveLength(1)
+  })
+
+  it('restores a snapshot and the restore itself is undoable', () => {
+    const snap = store().recordSnapshot('Before edits')!
+    const id = store().script.elements[1].id
+    store().checkpoint()
+    store().updateElementText(id, 'Changed.')
+    store().restoreSnapshot(snap.id)
+    expect(store().script.elements[1].text).toBe('Sunlight fills the room.')
+    store().undo()
+    expect(store().script.elements[1].text).toBe('Changed.')
   })
 })
 

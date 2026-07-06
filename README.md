@@ -21,6 +21,14 @@ React 18 · Vite · TypeScript · Zustand · Tailwind CSS 4 · Firebase.
   (white → blue → pink → …).
 - **Creative tracking** — tags with script filtering, localized notes,
   alternate dialogue lines.
+- **Story Bible** — treatment, outline, character bios and research live in
+  the same file as the screenplay.
+- **Version timeline** — automatic restorable snapshots with page/word deltas;
+  restores are themselves undoable.
+- **Writing sprints** — one-click 15-minute sprint with a word goal that drops
+  you into focus mode, then "gathers" the result as a snapshot.
+- **Live presence** — collaborators' name badges appear on the element they're
+  editing (via Firestore presence).
 - **Focus mode**, dark mode, Fountain import/export, print-to-PDF.
 - **Cloud sync** — anonymous Firebase auth + Firestore autosave with presence,
   fully optional: the app works 100% offline against localStorage.
