@@ -13,7 +13,9 @@ export function StatusBar() {
   const dirty = useScriptStore((s) => s.dirty);
   const activeElementId = useUiStore((s) => s.activeElementId);
 
-  const pages = usePagination().pages.length;
+  const { pages: allPages, pageOf } = usePagination();
+  const pages = allPages.length;
+  const activePage = activeElementId ? pageOf.get(activeElementId) : undefined;
   const words = useMemo(
     () => elements.reduce((a, el) => a + countWords(el.text), 0),
     [elements],
@@ -26,8 +28,10 @@ export function StatusBar() {
 
   return (
     <footer className="no-print flex items-center gap-4 border-t border-line bg-desk-raised px-3 py-1 font-ui text-[11px] text-ink-faint">
-      <span>
-        {pages} page{pages === 1 ? "" : "s"}
+      <span data-testid="page-indicator">
+        {activePage != null
+          ? `page ${activePage} of ${pages}`
+          : `${pages} page${pages === 1 ? "" : "s"}`}
       </span>
       <span>{words} words</span>
       <span>

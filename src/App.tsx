@@ -16,6 +16,7 @@ import { Library } from './components/Library'
 import { PaginationProvider } from './components/PaginationContext'
 import { PrintView } from './components/PrintView'
 import { Toaster } from './components/ui'
+import { CommandPalette } from './components/CommandPalette'
 import { useCollabStore } from './stores/collabStore'
 import {
   deleteScript as deleteLocalScript,
@@ -473,6 +474,15 @@ export default function App() {
       } else if (mod && e.key.toLowerCase() === 'p') {
         e.preventDefault()
         requestPrint()
+      } else if (mod && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        const opening = !useUiStore.getState().paletteOpen
+        // Blur synchronously: keystrokes in the gap before the palette
+        // input mounts must not land in the script.
+        if (opening && document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur()
+        }
+        useUiStore.getState().setPaletteOpen(opening)
       } else if (e.key === 'Escape' && useUiStore.getState().focusMode) {
         toggleFocusMode()
       } else if (mod && e.shiftKey && e.key.toLowerCase() === 'f') {
@@ -552,6 +562,7 @@ export default function App() {
           {!focusMode && notesOpen && view === 'editor' && <NotesPanel />}
         </div>
         <Toaster />
+        <CommandPalette onPrint={requestPrint} />
         {!focusMode && <StatusBar />}
         </div>
       </div>

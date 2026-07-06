@@ -9,10 +9,11 @@
  * selects to a per-block boolean). A keystroke re-renders exactly the edited
  * block, not the script.
  */
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import type { ScriptElement } from "../types";
 import { ELEMENT_LAYOUT } from "../engine/pagination";
+import { buildContext, suggest } from "../engine/smartType";
 import {
   onEnter,
   onTab,
@@ -34,6 +35,8 @@ import {
 } from "./caret";
 import { pastePlainText } from "./clipboard";
 import { parseFountainBody } from "../engine/fountain";
+import { Menu, MenuItem } from "./ui";
+import { ELEMENT_LABELS, ELEMENT_TYPES } from "../types";
 
 const PLACEHOLDERS: Partial<Record<ScriptElement["type"], string>> = {
   scene_heading: "INT. LOCATION - DAY",
@@ -66,6 +69,35 @@ export const ElementBlock = memo(function ElementBlock({
     s.pendingCaret?.elementId === element.id ? s.pendingCaret : null,
   );
 
+  // ---- SmartType: completions for cues, headings and transitions.
+  // Computed only for the active block; buildContext walks the script at
+  // popup time (cheap, and only one block is ever active).
+  const [sugIndex, setSugIndex] = useState(0);
+  const [sugDismissed, setSugDismissed] = useState(false);
+  const suggestions = useMemo(() => {
+    if (!active || sugDismissed || element.locked) return [];
+    return suggest(
+      element.type,
+      element.text,
+      buildContext(useScriptStore.getState().script.elements),
+    );
+  }, [active, sugDismissed, element.type, element.text, element.locked]);
+
+  useEffect(() => {
+    // New element focus or type change: popup state resets.
+    setSugDismissed(false);
+    setSugIndex(0);
+  }, [active, element.type]);
+
+  const acceptSuggestion = (i: number) => {
+    const s = suggestions[i];
+    if (!s) return;
+    checkpoint();
+    updateElementText(element.id, s.text);
+    setSugDismissed(true);
+    requestCaret(element.id, s.text.length);
+  };
+
   // Keep DOM text in sync with store (skip when it already matches — that is
   // the common case for self-originated edits and preserves the caret).
   useEffect(() => {
@@ -93,6 +125,30 @@ export const ElementBlock = memo(function ElementBlock({
     const div = ref.current!;
     const caret = getCaretOffset(div);
     const ctx = { element, caret, hasSelection: hasSelection() };
+
+    // SmartType popup owns navigation keys while it is open.
+    if (suggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSugIndex((i) => (i + 1) % suggestions.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSugIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        acceptSuggestion(sugIndex);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setSugDismissed(true);
+        return;
+      }
+    }
 
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -169,6 +225,8 @@ export const ElementBlock = memo(function ElementBlock({
   const handleInput = () => {
     const div = ref.current!;
     const text = div.textContent ?? "";
+    setSugDismissed(false);
+    setSugIndex(0);
     updateElementText(element.id, text);
     const detected = detectTypeFromText(text, element.type);
     if (detected) {
@@ -233,6 +291,41 @@ export const ElementBlock = memo(function ElementBlock({
 
   return (
     <div className="relative">
+      {active && !element.locked && (
+        <div
+          className="absolute top-0 z-10 hidden -translate-x-full pr-3 lg:block"
+          contentEditable={false}
+        >
+          <Menu
+            align="left"
+            width="w-36"
+            trigger={() => (
+              <button
+                data-testid="type-pill"
+                className="whitespace-nowrap rounded-full border border-line bg-desk-raised px-2 py-px font-ui text-[10px] font-medium text-ink-faint shadow-sm transition-colors hover:border-brass hover:text-brass"
+                title="Change element type"
+              >
+                {ELEMENT_LABELS[element.type]}
+              </button>
+            )}
+          >
+            {ELEMENT_TYPES.map((t) => (
+              <MenuItem
+                key={t}
+                onClick={() => {
+                  checkpoint();
+                  setElementType(element.id, t);
+                  requestCaret(element.id, element.text.length);
+                }}
+              >
+                <span className={t === element.type ? "text-brass" : ""}>
+                  {ELEMENT_LABELS[t]}
+                </span>
+              </MenuItem>
+            ))}
+          </Menu>
+        </div>
+      )}
       {peers.length > 0 && (
         <div className="absolute -right-2 top-0 flex translate-x-full flex-col gap-0.5">
           {peers.map((p) => (
@@ -271,6 +364,44 @@ export const ElementBlock = memo(function ElementBlock({
         onFocus={() => setActiveElement(element.id)}
         onBlur={handleBlur}
       />
+      {suggestions.length > 0 && (
+        <ul
+          data-testid="smarttype-popup"
+          role="listbox"
+          aria-label="SmartType suggestions"
+          className="absolute z-20 mt-0.5 min-w-44 overflow-hidden rounded-md border border-line bg-desk-raised py-0.5 font-ui shadow-lg"
+          style={{ left: `${layout.indent}ch` }}
+        >
+          {suggestions.map((s, i) => (
+            <li key={s.text}>
+              <button
+                role="option"
+                aria-selected={i === sugIndex}
+                // preventDefault so the editable block keeps focus.
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  acceptSuggestion(i);
+                }}
+                onMouseEnter={() => setSugIndex(i)}
+                className={`flex w-full items-baseline gap-0 px-2.5 py-1 text-left text-[11px] ${
+                  i === sugIndex ? "bg-brass-soft text-ink" : "text-ink-soft"
+                }`}
+              >
+                <span className="font-screenplay text-xs uppercase">
+                  {s.text.slice(0, s.text.length - s.completion.length)}
+                  <span className="text-brass">{s.completion}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+          <li
+            aria-hidden
+            className="border-t border-line/60 px-2.5 pb-0.5 pt-1 text-[9px] text-ink-faint"
+          >
+            ↑↓ choose · Enter accept · Esc dismiss
+          </li>
+        </ul>
+      )}
       {element.sceneNumber && element.type === "scene_heading" && (
         <span className="absolute -left-10 top-0 font-screenplay text-ink-faint select-none">
           {element.sceneNumber}

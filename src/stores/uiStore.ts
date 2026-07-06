@@ -44,6 +44,9 @@ export interface UiState {
   /** Session-scoped dismissal of the guest-work-is-device-only banner. */
   guestBannerDismissed: boolean
   dismissGuestBanner: () => void
+  /** Ctrl+K command palette. */
+  paletteOpen: boolean
+  setPaletteOpen: (open: boolean) => void
 
   startSprint: (minutes: number, targetWords: number, currentWords: number) => void
   endSprint: () => void
@@ -74,6 +77,8 @@ export const useUiStore = create<UiState>((set) => ({
   setAccountMenuOpen: (accountMenuOpen) => set({ accountMenuOpen }),
   guestBannerDismissed: false,
   dismissGuestBanner: () => set({ guestBannerDismissed: true }),
+  paletteOpen: false,
+  setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
 
   startSprint: (minutes, targetWords, currentWords) =>
     set({
