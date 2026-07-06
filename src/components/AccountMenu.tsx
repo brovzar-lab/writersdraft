@@ -5,6 +5,7 @@
  * recovers them.
  */
 import { useState } from 'react'
+import { useUiStore } from '../stores/uiStore'
 
 export interface AccountUser {
   uid: string
@@ -19,7 +20,9 @@ export function AccountMenu({
   user: AccountUser | null
   onAuthChanged: () => void
 }) {
-  const [open, setOpen] = useState(false)
+  // Open state lives in the UI store so the guest banner can open the menu.
+  const open = useUiStore((s) => s.accountMenuOpen)
+  const setOpen = useUiStore((s) => s.setAccountMenuOpen)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -46,7 +49,7 @@ export function AccountMenu({
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(!open)}
         className={`rounded px-1.5 py-0.5 text-xs border ${
           user && !user.isAnonymous
             ? 'border-green-300 text-green-600'

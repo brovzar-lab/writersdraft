@@ -41,7 +41,38 @@ export function StatusBar() {
         </span>
       )}
       <span className={active ? '' : 'ml-auto'}>{dirty ? '● unsaved' : '✓ saved'}</span>
+      <StorageIndicator />
     </footer>
+  )
+}
+
+/**
+ * Honest storage state. 'granted' means the browser promised not to evict
+ * this origin's data under disk pressure; anything else means it might,
+ * and the tooltip says so instead of pretending saves are invincible.
+ */
+function StorageIndicator() {
+  const persist = useUiStore((s) => s.storagePersist)
+  if (persist === null || persist === 'unsupported') return null
+  if (persist === 'granted') {
+    return (
+      <span
+        data-testid="storage-indicator"
+        title="The browser granted persistent storage — your local drafts won't be evicted under disk pressure."
+        className="text-green-600"
+      >
+        🛡 storage protected
+      </span>
+    )
+  }
+  return (
+    <span
+      data-testid="storage-indicator"
+      title="The browser declined persistent storage: under disk pressure it may evict this site's data. Adding an account (cloud copy) protects your work."
+      className="text-amber-600"
+    >
+      ⚠ storage evictable
+    </span>
   )
 }
 

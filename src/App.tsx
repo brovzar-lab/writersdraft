@@ -25,6 +25,7 @@ import {
   migrateLegacyLocalStorage,
   putScript,
   putTimeline,
+  requestPersistentStorage,
   setMeta,
 } from './storage/local'
 import { decodeTimeline, encodeTimeline } from './engine/timelineCodec'
@@ -36,6 +37,44 @@ const LS_KEY = 'writersdraft:script'
 
 /** Record an automatic version snapshot at most this often. */
 const AUTOSNAP_INTERVAL_MS = 5 * 60_000
+
+/**
+ * Honest account state: while the session is anonymous (or cloud sync is
+ * unreachable) the draft lives only in this browser. Recovery must never
+ * silently depend on account linking the user was never told about.
+ */
+function GuestBanner({ user, syncState }: { user: AccountUser | null; syncState: string }) {
+  const dismissed = useUiStore((s) => s.guestBannerDismissed)
+  const dismissGuestBanner = useUiStore((s) => s.dismissGuestBanner)
+  const setAccountMenuOpen = useUiStore((s) => s.setAccountMenuOpen)
+  if (dismissed || (user && !user.isAnonymous)) return null
+  const offline = !user || syncState === 'local'
+  return (
+    <div
+      data-testid="guest-banner"
+      className="no-print flex items-center gap-3 border-b border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 px-3 py-1.5 text-xs text-blue-900 dark:text-blue-100"
+    >
+      <span className="flex-1">
+        {offline
+          ? 'Cloud sync is offline — this draft lives only in this browser right now. Clearing site data would erase it.'
+          : "You're writing as a guest — this draft's cloud copy is tied to this browser. Add an account to recover your work on any device."}
+      </span>
+      <button
+        onClick={() => setAccountMenuOpen(true)}
+        className="rounded bg-blue-500 px-2 py-1 text-white hover:bg-blue-600"
+      >
+        Create account
+      </button>
+      <button
+        onClick={dismissGuestBanner}
+        aria-label="Dismiss"
+        className="rounded px-1.5 py-1 hover:bg-blue-100 dark:hover:bg-blue-900/60"
+      >
+        ×
+      </button>
+    </div>
+  )
+}
 
 function readHashScriptId(): string | null {
   const m = window.location.hash.match(/^#\/s\/([A-Za-z0-9_-]+)/)
@@ -69,6 +108,7 @@ export default function App() {
   const userIdRef = useRef<string | null>(null)
   const pendingCloudFetchRef = useRef<string | null>(null)
   const lastAutoSnapRef = useRef(0)
+  const persistRequestRef = useRef(false)
 
   // ---- Boot: restore from IndexedDB (migrating any legacy localStorage save).
   useEffect(() => {
@@ -136,6 +176,13 @@ export default function App() {
       // Mirror only; IndexedDB remains the store of record.
     }
     if (localOk) state.markSaved()
+
+    // First successful save: ask the browser to protect this origin's
+    // storage from eviction, and surface the answer instead of assuming it.
+    if (localOk && persistRequestRef.current === false) {
+      persistRequestRef.current = true
+      void requestPersistentStorage().then((r) => useUiStore.getState().setStoragePersist(r))
+    }
 
     try {
       if (Date.now() - lastAutoSnapRef.current > AUTOSNAP_INTERVAL_MS) {
@@ -470,6 +517,7 @@ export default function App() {
             </button>
           </div>
         )}
+        {!focusMode && booted && <GuestBanner user={user} syncState={syncState} />}
         <div className="flex min-h-0 flex-1">
           {!focusMode && sidebarOpen && view === 'editor' && (
             <aside className="no-print w-64 shrink-0 overflow-y-auto border-r border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">

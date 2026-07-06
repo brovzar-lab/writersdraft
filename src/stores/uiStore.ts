@@ -30,6 +30,20 @@ export interface UiState {
   pendingCaret: { elementId: string; offset: number; center?: boolean } | null
   tagFilter: string | null
   sprint: Sprint | null
+  /**
+   * Whether the browser granted persistent storage (navigator.storage
+   * .persist(), requested on first save). 'denied'/'unknown' means the
+   * draft store may be evicted under disk pressure — surfaced honestly
+   * in the status bar. null = not yet requested.
+   */
+  storagePersist: 'granted' | 'denied' | 'unsupported' | 'unknown' | null
+  setStoragePersist: (v: UiState['storagePersist']) => void
+  /** Account dropdown open state (the guest banner opens it remotely). */
+  accountMenuOpen: boolean
+  setAccountMenuOpen: (open: boolean) => void
+  /** Session-scoped dismissal of the guest-work-is-device-only banner. */
+  guestBannerDismissed: boolean
+  dismissGuestBanner: () => void
 
   startSprint: (minutes: number, targetWords: number, currentWords: number) => void
   endSprint: () => void
@@ -54,6 +68,12 @@ export const useUiStore = create<UiState>((set) => ({
   pendingCaret: null,
   tagFilter: null,
   sprint: null,
+  storagePersist: null,
+  setStoragePersist: (storagePersist) => set({ storagePersist }),
+  accountMenuOpen: false,
+  setAccountMenuOpen: (accountMenuOpen) => set({ accountMenuOpen }),
+  guestBannerDismissed: false,
+  dismissGuestBanner: () => set({ guestBannerDismissed: true }),
 
   startSprint: (minutes, targetWords, currentWords) =>
     set({

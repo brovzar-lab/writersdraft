@@ -206,6 +206,24 @@ export function setMeta(key: string, value: unknown): Promise<void> {
   return idbPut('meta', key, value)
 }
 
+export type PersistState = 'granted' | 'denied' | 'unsupported' | 'unknown'
+
+/**
+ * Ask the browser to protect this origin's storage from eviction under
+ * disk pressure. Called on the first successful save; the outcome is
+ * surfaced to the user rather than assumed — a denied grant means the
+ * draft store is evictable and cloud/account backup genuinely matters.
+ */
+export async function requestPersistentStorage(): Promise<PersistState> {
+  if (typeof navigator === 'undefined' || !navigator.storage?.persist) return 'unsupported'
+  try {
+    if (await navigator.storage.persisted()) return 'granted'
+    return (await navigator.storage.persist()) ? 'granted' : 'denied'
+  } catch {
+    return 'unknown'
+  }
+}
+
 /**
  * One-time migration of the legacy localStorage save into IndexedDB.
  * The localStorage copy is deliberately left in place as a safety net —

@@ -418,6 +418,22 @@ describe('uiStore', () => {
     expect(useUiStore.getState().focusMode).toBe(true)
     expect(useUiStore.getState().sidebarOpen).toBe(false)
   })
+  it('tracks persistent-storage grant state for the status bar', () => {
+    useUiStore.setState({ storagePersist: null })
+    useUiStore.getState().setStoragePersist('denied')
+    expect(useUiStore.getState().storagePersist).toBe('denied')
+    useUiStore.getState().setStoragePersist('granted')
+    expect(useUiStore.getState().storagePersist).toBe('granted')
+  })
+
+  it('guest banner dismissal is session-scoped state; banner can open the account menu', () => {
+    useUiStore.setState({ guestBannerDismissed: false, accountMenuOpen: false })
+    useUiStore.getState().setAccountMenuOpen(true)
+    expect(useUiStore.getState().accountMenuOpen).toBe(true)
+    useUiStore.getState().dismissGuestBanner()
+    expect(useUiStore.getState().guestBannerDismissed).toBe(true)
+  })
+
   it('caret handoff request round-trips', () => {
     useUiStore.getState().requestCaret('el-1', 5)
     expect(useUiStore.getState().pendingCaret).toEqual({ elementId: 'el-1', offset: 5 })
