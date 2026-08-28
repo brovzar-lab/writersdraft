@@ -3,6 +3,10 @@
 An industry-standard screenwriting web app in the spirit of Final Draft.
 React 18 · Vite · TypeScript · Zustand · Tailwind CSS 4 · Firebase.
 
+## Main page
+
+![App main page](docs/main-page.png)
+
 ## Features
 
 - **Tab/Enter state machine editor** — Final Draft element flow (Scene Heading,
